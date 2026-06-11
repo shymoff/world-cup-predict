@@ -161,7 +161,7 @@ function MatchRow({ match, onSaved }) {
 
             <div className="row-actions">
                 {locked ? (
-                    <span className="locked-badge">🔒 Zakłady zamknięte — mecz się rozpoczął</span>
+                    <span className="locked-badge">🔒 Zakłady zamknięte</span>
                 ) : (
                     <React.Fragment>
                         <button className="btn btn-save" disabled={!bothFilled || !dirty || saving}
@@ -256,12 +256,12 @@ function ChampionPicker() {
 
     useEffect(() => { load(); }, []);
 
-    async function save() {
+    async function save(code) {
         setSaving(true);
         const res = await api(`${API}/champion`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ code: pick || null }),
+            body: JSON.stringify({ code: code || null }),
         });
         setSaving(false);
         if (res.ok) {
@@ -271,12 +271,22 @@ function ChampionPicker() {
         }
     }
 
+    function onPick(e) {
+        const code = e.target.value;
+        setPick(code);
+        save(code);
+    }
+
+    function clear() {
+        setPick("");
+        save("");
+    }
+
     if (data === null) {
         return <div className="loading">Ładowanie…</div>;
     }
 
     const { teams, locked, actualChampion, pointsEarned } = data;
-    const dirty = pick !== (data.pick ?? "");
     const pickedTeam = teams.find((t) => t.code === pick);
     const championTeam = teams.find((t) => t.code === actualChampion);
 
@@ -301,7 +311,7 @@ function ChampionPicker() {
 
             <div className="champion-picker">
                 {pickedTeam && <Flag code={pickedTeam.code} name={pickedTeam.name} />}
-                <select value={pick} disabled={locked} onChange={(e) => setPick(e.target.value)}>
+                <select value={pick} disabled={locked || saving} onChange={onPick}>
                     <option value="">— wybierz drużynę —</option>
                     {teams.map((t) => (
                         <option key={t.code} value={t.code}>{t.name}</option>
@@ -309,12 +319,14 @@ function ChampionPicker() {
                 </select>
 
                 {locked ? (
-                    <span className="locked-badge">🔒 Typowanie zamknięte — turniej się rozpoczął</span>
+                    <span className="locked-badge">🔒 Typowanie zamknięte</span>
                 ) : (
                     <React.Fragment>
-                        <button className="btn btn-save" disabled={!dirty || saving} onClick={save}>
-                            {saving ? "Zapisywanie…" : "Zapisz"}
-                        </button>
+                        {pick && (
+                            <button className="btn btn-clear" disabled={saving} onClick={clear}>
+                                Wyczyść
+                            </button>
+                        )}
                         {justSaved && <span className="saved-badge">✓ zapisano</span>}
                     </React.Fragment>
                 )}
