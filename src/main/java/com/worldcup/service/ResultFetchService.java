@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 
 /**
@@ -116,10 +117,11 @@ public class ResultFetchService {
             if (response == null || response.event() == null) {
                 return null;
             }
+            String kickoffDateUtc = Instant.parse(match.getKickoffUtc()).atZone(ZoneOffset.UTC).toLocalDate().toString();
             for (Event event : response.event()) {
                 if (!hasStarted(event.strStatus())) continue;
                 if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
-                if (!match.getDate().equals(event.dateEvent())) continue;
+                if (!kickoffDateUtc.equals(event.dateEvent())) continue;
                 return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
             }
         } catch (Exception e) {
