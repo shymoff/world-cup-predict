@@ -105,23 +105,25 @@ public class ResultFetchService {
         }
     }
 
-    /** Szuka wyniku meczu w TheSportsDB po angielskich nazwach druzyn i dacie. */
+    /** Szuka wyniku meczu wsrod wszystkich wydarzen MS 2026 w danym dniu (wg daty kickoffu UTC). */
     private int[] fetchResult(Match match) {
         try {
-            String query = match.getTeam1En().replace(" ", "_") + "_vs_" + match.getTeam2En().replace(" ", "_");
-            SearchEventsResponse response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder.path("/searchevents.php").queryParam("e", query).build())
+            String dateUtc = Instant.parse(match.getKickoffUtc()).atZone(ZoneOffset.UTC).toLocalDate().toString();
+            EventsDayResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/eventsday.php")
+                            .queryParam("d", dateUtc)
+                            .queryParam("l", WORLD_CUP_LEAGUE_ID)
+                            .build())
                     .retrieve()
-                    .body(SearchEventsResponse.class);
+                    .body(EventsDayResponse.class);
 
-            if (response == null || response.event() == null) {
+            if (response == null || response.events() == null) {
                 return null;
             }
-            String kickoffDateUtc = Instant.parse(match.getKickoffUtc()).atZone(ZoneOffset.UTC).toLocalDate().toString();
-            for (Event event : response.event()) {
+            for (DayEvent event : response.events()) {
                 if (!hasStarted(event.strStatus())) continue;
                 if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
-                if (!kickoffDateUtc.equals(event.dateEvent())) continue;
+                if (!sameTeams(match.getTeam1En(), match.getTeam2En(), event.strHomeTeam(), event.strAwayTeam())) continue;
                 return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
             }
         } catch (Exception e) {
@@ -129,6 +131,19 @@ public class ResultFetchService {
                     match.getTeam1En(), match.getTeam2En(), e.getMessage());
         }
         return null;
+    }
+
+    /** Porownuje pary nazw druzyn ignorujac wielkosc liter oraz roznice typu "and" / "-". */
+    private boolean sameTeams(String home1, String away1, String home2, String away2) {
+        return namesMatch(home1, home2) && namesMatch(away1, away2);
+    }
+
+    private boolean namesMatch(String a, String b) {
+        return a != null && b != null && normalizeTeamName(a).equals(normalizeTeamName(b));
+    }
+
+    private String normalizeTeamName(String name) {
+        return name.toLowerCase().replace(" and ", " ").replace("-", " ").replaceAll("\\s+", " ").trim();
     }
 
     /** Status oznaczajacy, ze mecz sie rozpoczal i ma wiarygodny wynik (w toku lub zakonczony). */
@@ -216,19 +231,11 @@ public class ResultFetchService {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record SearchEventsResponse(List<Event> event) {
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    private record Event(String dateEvent, String strStatus, String intHomeScore, String intAwayScore) {
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
     private record EventsDayResponse(List<DayEvent> events) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record DayEvent(String strEvent, String strHomeTeam, String strAwayTeam,
+    private record DayEvent(String strEvent, String strHomeTeam, String strAwayTeam, String strStatus,
                              String intHomeScore, String intAwayScore) {
     }
 }
