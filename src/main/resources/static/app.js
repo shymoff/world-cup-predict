@@ -199,7 +199,9 @@ function DayCard({ date, matches, onSaved }) {
 }
 
 // ---- Ranking wszystkich zarejestrowanych uzytkownikow ----
-function Leaderboard() {
+const MEDALE = ["🥇", "🥈", "🥉"];
+
+function Leaderboard({ me }) {
     const [entries, setEntries] = useState(null);
 
     useEffect(() => {
@@ -225,9 +227,12 @@ function Leaderboard() {
                 </thead>
                 <tbody>
                     {entries.map((e, i) => (
-                        <tr key={e.username}>
-                            <td className="lb-rank">{i + 1}</td>
-                            <td>{e.username}</td>
+                        <tr key={e.username} className={e.username === me ? "me" : ""}>
+                            <td className="lb-rank">{i < 3 ? MEDALE[i] : i + 1}</td>
+                            <td className="lb-name">
+                                {e.username}
+                                {e.username === me && <span className="you-badge">Ty</span>}
+                            </td>
                             <td className="lb-points">{e.points}</td>
                         </tr>
                     ))}
@@ -398,6 +403,7 @@ function App({ user, onLogout }) {
     }, [filtered]);
 
     const playedCount = matches.filter((m) => m.played).length;
+    const playedPct = matches.length ? Math.round((playedCount / matches.length) * 100) : 0;
 
     if (loading) {
         return <div className="loading">Ładowanie meczów…</div>;
@@ -407,25 +413,36 @@ function App({ user, onLogout }) {
         <div>
             <header className="app-header">
                 <div className="userbar">
-                    <span className="user-chip">👤 {user}</span>
+                    <span className="user-chip">
+                        <span className="user-avatar">{user.charAt(0).toUpperCase()}</span>
+                        {user}
+                    </span>
                     <button className="btn btn-clear" onClick={onLogout}>Wyloguj</button>
                 </div>
-                <h1>⚽ Mistrzostwa Świata 2026 — Predyktor</h1>
-                <p>Twoje typy • Faza grupowa • 11–27 czerwca 2026 • {playedCount} / {matches.length} uzupełnionych</p>
+                <h1>⚽ Mistrzostwa Świata <span className="grad">2026</span></h1>
+                <p className="tagline">Typuj wyniki • Faza grupowa • 11–27 czerwca 2026</p>
+                <div className="progress">
+                    <div className="progress-track">
+                        <div className="progress-fill" style={{ width: `${playedPct}%` }} />
+                    </div>
+                    <span className="progress-label">{playedCount} / {matches.length} typów</span>
+                </div>
             </header>
 
             <div className="container">
-                <div className="tab-bar">
-                    <button className={"chip wide" + (tab === "matches" ? " active" : "")}
-                            onClick={() => setTab("matches")}>⚽ Mecze</button>
-                    <button className={"chip wide" + (tab === "knockout" ? " active" : "")}
-                            onClick={() => setTab("knockout")}>🏁 Faza pucharowa</button>
-                    <button className={"chip wide" + (tab === "leaderboard" ? " active" : "")}
-                            onClick={() => setTab("leaderboard")}>🏆 Ranking</button>
+                <div className="tab-bar-wrap">
+                    <div className="tab-bar">
+                        <button className={"chip wide" + (tab === "matches" ? " active" : "")}
+                                onClick={() => setTab("matches")}>⚽ Mecze</button>
+                        <button className={"chip wide" + (tab === "knockout" ? " active" : "")}
+                                onClick={() => setTab("knockout")}>🏁 Faza pucharowa</button>
+                        <button className={"chip wide" + (tab === "leaderboard" ? " active" : "")}
+                                onClick={() => setTab("leaderboard")}>🏆 Ranking</button>
+                    </div>
                 </div>
 
                 {tab === "leaderboard" ? (
-                    <Leaderboard />
+                    <Leaderboard me={user} />
                 ) : tab === "knockout" ? (
                     <KnockoutStage />
                 ) : (

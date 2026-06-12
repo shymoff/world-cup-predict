@@ -1,61 +1,157 @@
 :root {
-    --bg: #0d1117;
-    --panel: #161b22;
-    --panel-2: #1c2330;
-    --border: #2a3340;
-    --accent: #00c853;
-    --accent-2: #2979ff;
-    --text: #e6edf3;
-    --muted: #8b98a8;
-    --gold: #ffd54f;
+    --bg: #090d14;
+    --bg-glow-1: rgba(16, 185, 129, 0.10);
+    --bg-glow-2: rgba(59, 130, 246, 0.10);
+    --panel: rgba(23, 30, 42, 0.72);
+    --panel-solid: #151c28;
+    --panel-2: rgba(34, 44, 60, 0.65);
+    --border: rgba(148, 163, 184, 0.14);
+    --border-strong: rgba(148, 163, 184, 0.28);
+    --accent: #10b981;
+    --accent-bright: #34d399;
+    --accent-2: #60a5fa;
+    --text: #e8eef6;
+    --muted: #94a3b8;
+    --gold: #fbbf24;
+    --danger: #f87171;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --radius: 16px;
 }
 
 * {
     box-sizing: border-box;
 }
 
+html {
+    scrollbar-color: #2c3a4e var(--bg);
+}
+
 body {
     margin: 0;
-    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
-    background: radial-gradient(1200px 600px at 50% -10%, #18324a 0%, var(--bg) 55%);
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    background:
+        radial-gradient(900px 500px at 15% -10%, var(--bg-glow-1), transparent 60%),
+        radial-gradient(900px 500px at 85% -10%, var(--bg-glow-2), transparent 60%),
+        var(--bg);
+    background-attachment: fixed;
     color: var(--text);
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+    font-family: "Sora", "Inter", "Segoe UI", sans-serif;
 }
 
 .loading {
     text-align: center;
     padding: 80px 20px;
     color: var(--muted);
+    letter-spacing: 0.3px;
 }
+
+/* ---------- Naglowek aplikacji ---------- */
 
 header.app-header {
     text-align: center;
-    padding: 32px 16px 8px;
+    padding: 20px 16px 4px;
     position: relative;
+    max-width: 1100px;
+    margin: 0 auto;
 }
 
-/* Pasek uzytkownika */
+header.app-header h1 {
+    margin: 18px 0 0;
+    font-size: clamp(24px, 4.5vw, 36px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+}
+
+header.app-header h1 .grad {
+    background: linear-gradient(90deg, var(--accent-bright), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+header.app-header .tagline {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+/* Pasek postepu typowania */
+.progress {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 420px;
+    margin: 16px auto 0;
+}
+
+.progress-track {
+    flex: 1;
+    height: 7px;
+    background: rgba(148, 163, 184, 0.14);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.55);
+    transition: width 0.4s ease;
+}
+
+.progress-label {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ---------- Pasek uzytkownika ---------- */
+
 .userbar {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
-    max-width: 1100px;
-    margin: 0 auto 10px;
-    padding: 0 4px;
 }
 
 .user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: var(--panel);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 6px 14px;
+    padding: 5px 14px 5px 5px;
     border-radius: 999px;
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13.5px;
+    backdrop-filter: blur(8px);
 }
 
-/* Ekran logowania */
+.user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: #06241a;
+    background: linear-gradient(135deg, var(--accent-bright), var(--accent-2));
+}
+
+/* ---------- Ekran logowania ---------- */
+
 .login-wrap {
     min-height: 100vh;
     display: flex;
@@ -67,23 +163,37 @@ header.app-header {
 .login-card {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 32px 28px;
+    border-radius: 20px;
+    padding: 36px 30px 30px;
     width: 100%;
-    max-width: 360px;
+    max-width: 380px;
     display: flex;
     flex-direction: column;
     text-align: center;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+    animation: card-in 0.45s ease both;
 }
 
 .login-logo {
-    font-size: 44px;
-    line-height: 1;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(59, 130, 246, 0.25));
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 6px 24px rgba(16, 185, 129, 0.25);
 }
 
 .login-card h1 {
     font-size: 22px;
-    margin: 10px 0 4px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    margin: 16px 0 4px;
 }
 
 .login-sub {
@@ -94,63 +204,46 @@ header.app-header {
 
 .login-card label {
     text-align: left;
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 700;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin: 12px 0 6px;
+    letter-spacing: 1.2px;
+    margin: 14px 0 6px;
 }
 
 .login-card select,
 .login-card input {
-    background: var(--bg);
+    background: rgba(9, 13, 20, 0.65);
     color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 11px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 12px 14px;
     font-size: 15px;
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .login-card select:focus,
 .login-card input:focus {
     outline: none;
     border-color: var(--accent-2);
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
 }
 
 .login-error {
-    color: #ff6b6b;
+    color: var(--danger);
     font-size: 13px;
-    margin-top: 12px;
-}
-
-/* Ekran "serwer sie budzi" */
-.wake-card {
-    align-items: center;
-}
-
-.wake-spinner {
-    width: 36px;
-    height: 36px;
-    margin: 4px auto 14px;
-    border: 4px solid var(--border);
-    border-top-color: var(--accent-2);
-    border-radius: 50%;
-    animation: wake-spin 0.8s linear infinite;
-}
-
-@keyframes wake-spin {
-    to { transform: rotate(360deg); }
-}
-
-.wake-sub {
-    color: var(--muted);
-    font-size: 13px;
-    margin: 4px 0 0;
+    margin-top: 14px;
+    background: rgba(248, 113, 113, 0.08);
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    border-radius: 8px;
+    padding: 8px 12px;
 }
 
 .login-btn {
-    margin-top: 22px;
-    padding: 12px;
+    margin-top: 24px;
+    padding: 13px;
     font-size: 15px;
 }
 
@@ -168,22 +261,40 @@ header.app-header {
     cursor: pointer;
     font-size: 13px;
     padding: 0;
+    font-family: inherit;
 }
 
 .link-btn:hover {
     text-decoration: underline;
 }
 
-header.app-header h1 {
-    margin: 0;
-    font-size: 30px;
-    letter-spacing: 0.5px;
+/* ---------- Ekran "serwer sie budzi" ---------- */
+
+.wake-card {
+    align-items: center;
 }
 
-header.app-header p {
-    margin: 6px 0 0;
-    color: var(--muted);
+.wake-spinner {
+    width: 38px;
+    height: 38px;
+    margin: 4px auto 16px;
+    border: 4px solid rgba(148, 163, 184, 0.18);
+    border-top-color: var(--accent-2);
+    border-radius: 50%;
+    animation: wake-spin 0.8s linear infinite;
 }
+
+@keyframes wake-spin {
+    to { transform: rotate(360deg); }
+}
+
+.wake-sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 4px 0 0;
+}
+
+/* ---------- Uklad glowny ---------- */
 
 .container {
     max-width: 1100px;
@@ -191,21 +302,47 @@ header.app-header p {
     padding: 16px;
 }
 
-/* Zakladki: Mecze / Ranking */
+/* Zakladki: Mecze / Faza pucharowa / Ranking */
 .tab-bar {
-    display: flex;
-    gap: 6px;
+    display: inline-flex;
+    gap: 4px;
     justify-content: center;
-    margin: 12px 0 18px;
+    margin: 14px auto 20px;
+    padding: 5px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    backdrop-filter: blur(8px);
 }
 
-/* Ranking */
+.tab-bar-wrap {
+    text-align: center;
+}
+
+.tab-bar .chip {
+    border: none;
+    background: transparent;
+    height: 38px;
+    border-radius: 999px;
+}
+
+.tab-bar .chip.active {
+    background: linear-gradient(135deg, var(--accent), #0ea66f);
+    color: #06241a;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+/* ---------- Ranking ---------- */
+
 .leaderboard {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: var(--radius);
     overflow: hidden;
     margin-bottom: 22px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    animation: card-in 0.35s ease both;
 }
 
 .leaderboard-table {
@@ -215,7 +352,7 @@ header.app-header p {
 
 .leaderboard-table th,
 .leaderboard-table td {
-    padding: 12px 18px;
+    padding: 13px 20px;
     text-align: left;
 }
 
@@ -223,46 +360,93 @@ header.app-header p {
     background: var(--panel-2);
     border-bottom: 1px solid var(--border);
     color: var(--muted);
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.2px;
+}
+
+.leaderboard-table tbody tr {
+    transition: background 0.15s;
+}
+
+.leaderboard-table tbody tr:hover {
+    background: rgba(148, 163, 184, 0.05);
 }
 
 .leaderboard-table tbody tr:not(:last-child) td {
     border-bottom: 1px solid var(--border);
 }
 
+.leaderboard-table tr.me td {
+    background: rgba(16, 185, 129, 0.08);
+}
+
 .leaderboard-table .lb-rank {
-    width: 50px;
+    width: 56px;
     color: var(--muted);
     font-weight: 700;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-table .lb-name {
+    font-weight: 600;
+}
+
+.you-badge {
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--accent-bright);
+    background: rgba(16, 185, 129, 0.14);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    vertical-align: 1px;
 }
 
 .leaderboard-table .lb-points {
-    width: 100px;
-    font-weight: 700;
+    width: 110px;
+    font-weight: 800;
     color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
 }
 
-/* Typ na mistrza turnieju */
+/* ---------- Typ na mistrza turnieju ---------- */
+
 .champion-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    margin-bottom: 16px;
-    padding: 18px;
+    background:
+        linear-gradient(135deg, rgba(251, 191, 36, 0.06), transparent 45%),
+        var(--panel);
+    border: 1px solid rgba(251, 191, 36, 0.22);
+    border-radius: var(--radius);
+    margin-bottom: 18px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    animation: card-in 0.35s ease both;
 }
 
 .champion-card h2 {
     margin: 0 0 8px;
     font-size: 18px;
     color: var(--gold);
+    letter-spacing: -0.2px;
 }
 
 .champion-info {
-    margin: 0 0 14px;
+    margin: 0 0 16px;
     color: var(--muted);
     font-size: 14px;
+    line-height: 1.5;
+}
+
+.champion-info strong {
+    color: var(--gold);
 }
 
 .champion-result {
@@ -270,10 +454,10 @@ header.app-header p {
     align-items: center;
     gap: 10px;
     margin-bottom: 14px;
-    padding: 10px 14px;
+    padding: 12px 16px;
     background: var(--panel-2);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     font-size: 14px;
 }
 
@@ -285,19 +469,22 @@ header.app-header p {
 }
 
 .champion-picker select {
-    background: var(--bg);
+    background: rgba(9, 13, 20, 0.65);
     color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 10px 12px;
     font-size: 14px;
+    font-family: inherit;
     flex: 1;
     min-width: 200px;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .champion-picker select:focus {
     outline: none;
     border-color: var(--accent-2);
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
 }
 
 .champion-picker select:disabled {
@@ -305,79 +492,98 @@ header.app-header p {
     cursor: not-allowed;
 }
 
-/* Faza pucharowa (na razie puste sekcje) */
+/* ---------- Faza pucharowa ---------- */
+
 .knockout-section {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    margin-bottom: 16px;
+    border-radius: var(--radius);
+    margin-bottom: 14px;
     overflow: hidden;
+    backdrop-filter: blur(10px);
 }
 
 .knockout-section > h2 {
     margin: 0;
-    padding: 14px 18px;
+    padding: 14px 20px;
     background: var(--panel-2);
     border-bottom: 1px solid var(--border);
-    font-size: 16px;
+    font-size: 15px;
     color: var(--gold);
+    letter-spacing: 0.2px;
 }
 
 .knockout-placeholder {
     margin: 0;
-    padding: 18px;
+    padding: 18px 20px;
     color: var(--muted);
     font-size: 14px;
 }
 
-/* Filtr grup */
+/* ---------- Filtr grup ---------- */
+
 .group-filter {
     display: flex;
-    gap: 6px;
+    gap: 7px;
     justify-content: center;
     flex-wrap: wrap;
-    margin: 12px 0 24px;
+    margin: 4px 0 24px;
 }
 
 .chip {
-    min-width: 38px;
+    min-width: 40px;
     height: 38px;
-    padding: 0 6px;
-    border-radius: 10px;
+    padding: 0 8px;
+    border-radius: 12px;
     border: 1px solid var(--border);
     background: var(--panel);
     color: var(--muted);
     cursor: pointer;
     font-weight: 600;
+    font-size: 13.5px;
+    font-family: inherit;
     transition: all .15s;
+    backdrop-filter: blur(6px);
 }
 
 .chip.wide {
-    padding: 0 16px;
+    padding: 0 18px;
 }
 
 .chip:hover {
     color: var(--text);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
 }
 
 .chip.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #08130b;
+    background: linear-gradient(135deg, var(--accent), #0ea66f);
+    border-color: transparent;
+    color: #06241a;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
 }
 
-/* Karta jednego dnia */
+/* ---------- Karta jednego dnia ---------- */
+
 .day-card {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: var(--radius);
     margin-bottom: 22px;
     overflow: hidden;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    animation: card-in 0.35s ease both;
+}
+
+@keyframes card-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 .day-card > h2 {
     margin: 0;
-    padding: 14px 18px;
+    padding: 14px 20px;
     background: var(--panel-2);
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -387,19 +593,51 @@ header.app-header p {
 
 .day-card > h2 .weekday {
     font-size: 16px;
+    font-weight: 700;
     text-transform: capitalize;
     color: var(--gold);
+    letter-spacing: -0.2px;
 }
 
 .day-card > h2 .day-label {
-    font-size: 14px;
-    color: var(--text);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--muted);
 }
 
 .day-card > h2 .day-count {
     margin-left: auto;
-    font-size: 12px;
+    font-size: 11.5px;
+    font-weight: 600;
     color: var(--muted);
+    background: rgba(148, 163, 184, 0.10);
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
+}
+
+/* ---------- Pojedynczy mecz ---------- */
+
+.match-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px 12px;
+    border-top: 1px solid var(--border);
+    transition: background 0.15s;
+}
+
+.match-row:hover {
+    background: rgba(148, 163, 184, 0.04);
+}
+
+.match-row.played {
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.match-row.played:hover {
+    background: rgba(16, 185, 129, 0.08);
 }
 
 /* Linia meta nad meczem: godzina + grupa + ET */
@@ -408,6 +646,7 @@ header.app-header p {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 8px;
     font-size: 12px;
     font-weight: 600;
@@ -419,13 +658,13 @@ header.app-header p {
 }
 
 .match-group .dot {
-    color: var(--border);
+    color: var(--border-strong);
 }
 
 .match-group .grp {
     color: var(--accent-2);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.2px;
     font-size: 11px;
 }
 
@@ -444,38 +683,26 @@ header.app-header p {
 
 .points-badge {
     margin-left: 4px;
-    padding: 2px 8px;
+    padding: 2px 9px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 700;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(148, 163, 184, 0.08);
     color: var(--muted);
     border: 1px solid var(--border);
 }
 
 .points-badge.hit {
-    background: rgba(0, 200, 83, 0.15);
-    color: var(--accent);
-    border-color: var(--accent);
-}
-
-.match-row {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 18px;
-    border-top: 1px solid var(--border);
-}
-
-.match-row.played {
-    background: rgba(0, 200, 83, 0.05);
+    background: rgba(16, 185, 129, 0.14);
+    color: var(--accent-bright);
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.18);
 }
 
 .team {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     min-width: 0;
 }
 
@@ -486,37 +713,40 @@ header.app-header p {
 
 .team .name {
     font-size: 15px;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .flag {
-    width: 34px;
-    height: 23px;
+    width: 36px;
+    height: 24px;
     object-fit: cover;
-    border-radius: 3px;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 3px 8px rgba(0, 0, 0, 0.4);
     flex-shrink: 0;
 }
 
 .score-box {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
 }
 
 .score-box input {
-    width: 46px;
-    height: 42px;
+    width: 48px;
+    height: 44px;
     text-align: center;
     font-size: 20px;
     font-weight: 700;
-    background: var(--bg);
+    font-family: inherit;
+    background: rgba(9, 13, 20, 0.65);
     color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
     -moz-appearance: textfield;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .score-box input::-webkit-outer-spin-button,
@@ -528,6 +758,7 @@ header.app-header p {
 .score-box input:focus {
     outline: none;
     border-color: var(--accent-2);
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
 }
 
 .score-box input:disabled {
@@ -537,17 +768,17 @@ header.app-header p {
 
 /* Mecz zablokowany (po rozpoczeciu) */
 .match-row.locked {
-    opacity: .8;
+    opacity: .82;
 }
 
 .locked-badge {
     color: var(--muted);
     font-size: 12px;
     font-weight: 600;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(148, 163, 184, 0.07);
     border: 1px solid var(--border);
-    padding: 5px 12px;
-    border-radius: 8px;
+    padding: 5px 13px;
+    border-radius: 999px;
 }
 
 .score-box .sep {
@@ -559,18 +790,27 @@ header.app-header p {
     grid-column: 1 / -1;
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 10px;
-    padding-top: 4px;
+    padding-top: 6px;
+    min-height: 32px;
 }
+
+/* ---------- Przyciski ---------- */
 
 .btn {
     border: none;
-    border-radius: 8px;
-    padding: 7px 16px;
+    border-radius: 10px;
+    padding: 8px 18px;
     font-size: 13px;
     cursor: pointer;
-    font-weight: 600;
-    transition: filter .15s, opacity .15s;
+    font-weight: 700;
+    font-family: inherit;
+    transition: filter .15s, opacity .15s, transform .1s, box-shadow .15s;
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(1px);
 }
 
 .btn:disabled {
@@ -579,33 +819,105 @@ header.app-header p {
 }
 
 .btn:hover:not(:disabled) {
-    filter: brightness(1.12);
+    filter: brightness(1.1);
 }
 
 .btn-save {
-    background: var(--accent);
-    color: #08130b;
+    background: linear-gradient(135deg, var(--accent), #0ea66f);
+    color: #06241a;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+}
+
+.btn-save:hover:not(:disabled) {
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
 }
 
 .btn-clear {
     background: transparent;
     color: var(--muted);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-strong);
+}
+
+.btn-clear:hover:not(:disabled) {
+    color: var(--text);
 }
 
 .saved-badge {
-    color: var(--accent);
+    color: var(--accent-bright);
     font-size: 12px;
+    font-weight: 600;
     align-self: center;
+    animation: card-in 0.2s ease both;
 }
+
+/* ---------- Stopka ---------- */
 
 footer {
     text-align: center;
     color: var(--muted);
     font-size: 12px;
-    padding: 24px;
+    padding: 28px 16px 32px;
+    opacity: 0.8;
 }
 
 footer a {
     color: var(--accent-2);
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 560px) {
+    .container {
+        padding: 12px;
+    }
+
+    .match-row {
+        padding: 12px 12px 10px;
+        gap: 8px;
+    }
+
+    .team {
+        gap: 8px;
+    }
+
+    .team .name {
+        font-size: 13px;
+        white-space: normal;
+        line-height: 1.25;
+    }
+
+    .flag {
+        width: 30px;
+        height: 20px;
+    }
+
+    .score-box input {
+        width: 42px;
+        height: 40px;
+        font-size: 18px;
+    }
+
+    .match-group .et {
+        display: none;
+    }
+
+    .leaderboard-table th,
+    .leaderboard-table td {
+        padding: 11px 14px;
+    }
+
+    .day-card > h2 {
+        padding: 12px 14px;
+        flex-wrap: wrap;
+    }
+
+    .tab-bar .chip.wide {
+        padding: 0 12px;
+        font-size: 12.5px;
+    }
 }
