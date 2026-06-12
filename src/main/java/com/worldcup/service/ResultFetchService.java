@@ -15,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.text.Normalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -143,7 +144,8 @@ public class ResultFetchService {
     }
 
     private String normalizeTeamName(String name) {
-        return name.toLowerCase().replace(" and ", " ").replace("-", " ").replaceAll("\\s+", " ").trim();
+        String noDiacritics = Normalizer.normalize(name, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return noDiacritics.toLowerCase().replace(" and ", " ").replace("-", " ").replaceAll("\\s+", " ").trim();
     }
 
     /** Status oznaczajacy, ze mecz sie rozpoczal i ma wiarygodny wynik (w toku lub zakonczony). */
