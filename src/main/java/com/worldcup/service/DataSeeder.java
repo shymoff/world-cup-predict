@@ -52,10 +52,10 @@ public class DataSeeder implements CommandLineRunner {
         add(m, "2026-06-14T19:00", "E", "Wybrzeze Kosci Sloniowej", "Ekwador");
         add(m, "2026-06-14T22:00", "F", "Szwecja", "Tunezja");
 
-        add(m, "2026-06-15T13:00", "H", "Hiszpania", "Republika Zielonego Przyladka");
-        add(m, "2026-06-15T18:00", "G", "Belgia", "Egipt");
+        add(m, "2026-06-15T12:00", "H", "Hiszpania", "Republika Zielonego Przyladka");
+        add(m, "2026-06-15T15:00", "G", "Belgia", "Egipt");
         add(m, "2026-06-15T18:00", "H", "Arabia Saudyjska", "Urugwaj");
-        addLate(m, "2026-06-16T00:00", "G", "Iran", "Nowa Zelandia");
+        add(m, "2026-06-15T21:00", "G", "Iran", "Nowa Zelandia");
 
         add(m, "2026-06-16T15:00", "I", "Francja", "Senegal");
         add(m, "2026-06-16T18:00", "I", "Irak", "Norwegia");
@@ -71,12 +71,12 @@ public class DataSeeder implements CommandLineRunner {
         add(m, "2026-06-18T12:00", "A", "Czechy", "RPA");
         add(m, "2026-06-18T15:00", "B", "Szwajcaria", "Bosnia i Hercegowina");
         add(m, "2026-06-18T18:00", "B", "Kanada", "Katar");
-        add(m, "2026-06-18T23:00", "A", "Meksyk", "Korea Pld.");
+        add(m, "2026-06-18T21:00", "A", "Meksyk", "Korea Pld.");
 
         add(m, "2026-06-19T15:00", "D", "USA", "Australia");
         add(m, "2026-06-19T18:00", "C", "Szkocja", "Maroko");
-        add(m, "2026-06-19T21:00", "C", "Brazylia", "Haiti");
-        addLate(m, "2026-06-20T00:00", "D", "Turcja", "Paragwaj");
+        add(m, "2026-06-19T20:30", "C", "Brazylia", "Haiti");
+        add(m, "2026-06-19T23:00", "D", "Turcja", "Paragwaj");
 
         add(m, "2026-06-20T13:00", "F", "Holandia", "Szwecja");
         add(m, "2026-06-20T16:00", "E", "Niemcy", "Wybrzeze Kosci Sloniowej");
