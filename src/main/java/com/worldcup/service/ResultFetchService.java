@@ -132,7 +132,7 @@ public class ResultFetchService {
                 return null;
             }
             for (DayEvent event : response.events()) {
-                if (!hasStarted(event.strStatus())) continue;
+                if (!isFinished(event.strStatus())) continue;
                 if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
                 if (!sameTeams(match.getTeam1En(), match.getTeam2En(), event.strHomeTeam(), event.strAwayTeam())) continue;
                 return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
@@ -159,7 +159,7 @@ public class ResultFetchService {
                 return null;
             }
             for (DayEvent event : response.event()) {
-                if (!hasStarted(event.strStatus())) continue;
+                if (!isFinished(event.strStatus())) continue;
                 if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
                 if (!sameTeams(match.getTeam1En(), match.getTeam2En(), event.strHomeTeam(), event.strAwayTeam())) continue;
                 return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
@@ -185,11 +185,11 @@ public class ResultFetchService {
         return noDiacritics.toLowerCase().replace(" and ", " ").replace("-", " ").replaceAll("\\s+", " ").trim();
     }
 
-    /** Status oznaczajacy, ze mecz sie rozpoczal i ma wiarygodny wynik (w toku lub zakonczony). */
-    private static final List<String> NOT_STARTED_STATUSES = List.of("", "ns", "not started", "postponed", "cancelled", "tbd");
+    /** Statusy oznaczajace, ze mecz jest zakonczony i ma ostateczny wynik. */
+    private static final List<String> FINISHED_STATUSES = List.of("ft", "aet", "pen", "ap", "match finished", "finished");
 
-    private boolean hasStarted(String status) {
-        return status != null && !NOT_STARTED_STATUSES.contains(status.toLowerCase());
+    private boolean isFinished(String status) {
+        return status != null && FINISHED_STATUSES.contains(status.toLowerCase());
     }
 
     /**
