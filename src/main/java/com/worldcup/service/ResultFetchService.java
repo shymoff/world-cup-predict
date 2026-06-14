@@ -106,8 +106,18 @@ public class ResultFetchService {
         }
     }
 
-    /** Szuka wyniku meczu wsrod wszystkich wydarzen MS 2026 w danym dniu (wg daty kickoffu UTC). */
+    /** Najpierw szuka wyniku po dacie, a jesli eventsday.php go nie zwroci (zdarza sie przy
+     * wielu meczach jednego dnia) - probuje wyszukac mecz po nazwach druzyn. */
     private int[] fetchResult(Match match) {
+        int[] result = fetchResultByDate(match);
+        if (result != null) {
+            return result;
+        }
+        return fetchResultBySearch(match);
+    }
+
+    /** Szuka wyniku meczu wsrod wszystkich wydarzen MS 2026 w danym dniu (wg daty kickoffu UTC). */
+    private int[] fetchResultByDate(Match match) {
         try {
             String dateUtc = Instant.parse(match.getKickoffUtc()).atZone(ZoneOffset.UTC).toLocalDate().toString();
             EventsDayResponse response = restClient.get()
@@ -129,6 +139,33 @@ public class ResultFetchService {
             }
         } catch (Exception e) {
             log.warn("Nie udalo sie pobrac wyniku dla {} - {}: {}",
+                    match.getTeam1En(), match.getTeam2En(), e.getMessage());
+        }
+        return null;
+    }
+
+    /** Zapasowo: szuka meczu po nazwach druzyn (np. gdy eventsday.php nie zwrocil go w danym dniu). */
+    private int[] fetchResultBySearch(Match match) {
+        try {
+            String query = (match.getTeam1En() + "_vs_" + match.getTeam2En()).replace(" ", "_");
+            SearchEventsResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/searchevents.php")
+                            .queryParam("e", query)
+                            .build())
+                    .retrieve()
+                    .body(SearchEventsResponse.class);
+
+            if (response == null || response.event() == null) {
+                return null;
+            }
+            for (DayEvent event : response.event()) {
+                if (!hasStarted(event.strStatus())) continue;
+                if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
+                if (!sameTeams(match.getTeam1En(), match.getTeam2En(), event.strHomeTeam(), event.strAwayTeam())) continue;
+                return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
+            }
+        } catch (Exception e) {
+            log.warn("Nie udalo sie pobrac wyniku (search) dla {} - {}: {}",
                     match.getTeam1En(), match.getTeam2En(), e.getMessage());
         }
         return null;
@@ -234,6 +271,10 @@ public class ResultFetchService {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record EventsDayResponse(List<DayEvent> events) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record SearchEventsResponse(List<DayEvent> event) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
