@@ -12,9 +12,14 @@
     <link rel="stylesheet" href="/styles.css"/>
 
     <!-- React + ReactDOM + Babel z CDN (bez build-stepu / bez Node) -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- UWAGA: wersje MUSZA byc przypiete. Niezapiety @babel/standalone podlapal
+         Babel 8, ktory domyslnie kompiluje JSX w "automatic runtime" (wstrzykuje
+         import "react/jsx-runtime"), a ten import wywala sie w klasycznym <script>
+         ("Cannot use import statement outside a module") - aplikacja sie nie laduje.
+         Babel 7.x uzywa "classic runtime" (React.createElement) i dziala tu poprawnie. -->
+    <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
 </head>
 <body>
     <div id="root">
