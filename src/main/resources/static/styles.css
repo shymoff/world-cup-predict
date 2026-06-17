@@ -416,6 +416,56 @@ header.app-header .tagline {
     font-size: 15px;
 }
 
+/* ---------- Nagroda ---------- */
+
+.prize-card {
+    background:
+        linear-gradient(135deg, rgba(251, 191, 36, 0.08), transparent 50%),
+        var(--panel);
+    border: 1px solid rgba(251, 191, 36, 0.28);
+    border-radius: var(--radius);
+    margin-bottom: 18px;
+    padding: 22px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
+    animation: card-in 0.35s ease both;
+}
+
+.prize-card h2 {
+    margin: 0 0 10px;
+    font-size: 19px;
+    color: var(--gold);
+    letter-spacing: -0.2px;
+}
+
+.prize-text {
+    margin: 0 0 16px;
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.prize-img {
+    display: block;
+    max-width: 240px;
+    width: 100%;
+    height: auto;
+    margin: 0 auto 14px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+
+.prize-sponsor {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+}
+
+.prize-sponsor strong {
+    color: var(--accent-bright);
+}
+
 /* ---------- Typ na mistrza turnieju ---------- */
 
 .champion-card {

@@ -216,7 +216,8 @@ function Leaderboard({ me }) {
     }
 
     return (
-        <div className="leaderboard">
+        <React.Fragment>
+            <div className="leaderboard">
             <table className="leaderboard-table">
                 <thead>
                     <tr>
@@ -238,7 +239,19 @@ function Leaderboard({ me }) {
                     ))}
                 </tbody>
             </table>
-        </div>
+            </div>
+            <div className="prize-card">
+                <h2>🎁 Nagroda</h2>
+                <p className="prize-text">
+                    Za zajęcie <strong>pierwszego miejsca</strong> do wygrania są
+                    <strong> 2 złote</strong> oraz <strong>2 piwa</strong>! 🍺
+                </p>
+                <img src="piwka.png" alt="Piwa - nagroda" className="prize-img" />
+                <p className="prize-sponsor">
+                    Sponsorem nagród jest <strong>SKLEP SKOLIM</strong>.
+                </p>
+            </div>
+        </React.Fragment>
     );
 }
 
