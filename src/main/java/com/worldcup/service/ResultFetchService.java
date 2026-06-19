@@ -34,6 +34,12 @@ public class ResultFetchService {
     private static final String API_BASE = "https://www.thesportsdb.com/api/v1/json/3";
     // Mecz uznajemy za potencjalnie zakonczony ok. 2h po starcie
     private static final Duration MATCH_DURATION = Duration.ofHours(2);
+    // Odstep miedzy zapytaniami do API, by nie przekroczyc limitow darmowego klucza (Cloudflare 429/1015)
+    private static final long API_THROTTLE_MS = 1500;
+    // Po tylu nieudanych probach (przy cyklu co 5 min => ok. 5h) przestajemy odpytywac API o dany mecz.
+    // Tyle czasu z naddatkiem wystarcza, by API opublikowalo wynik; dalsze proby to zwykle problem z
+    // nazwa druzyny lub brak meczu w API - wtedy lepiej przestac obciazac API i zglosic to w logu.
+    private static final int MAX_FETCH_ATTEMPTS = 60;
 
     // Finał MS 2026: 19.07.2026, MetLife Stadium. Sprawdzanie wyniku rozpoczynamy
     // kilka godzin po starcie, by uwzglednic dogrywke i ewentualne karne.
@@ -46,6 +52,10 @@ public class ResultFetchService {
     private final UserRepository userRepository;
     private final TournamentStateRepository tournamentStateRepository;
     private final RestClient restClient;
+    // Licznik nieudanych prob pobrania wyniku per mecz (w pamieci - resetuje sie po restarcie aplikacji,
+    // wiec redeploy z poprawiona nazwa druzyny ponowi proby). Ogranicza obciazenie API dla meczow,
+    // ktorych nie da sie dopasowac (np. rozbieznosc nazw).
+    private final java.util.Map<Long, Integer> fetchAttempts = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ResultFetchService(MatchRepository matchRepository,
                                PredictionRepository predictionRepository,
@@ -66,23 +76,76 @@ public class ResultFetchService {
         fetchAndAwardChampion();
     }
 
-    /** Dla zakonczonych meczow bez wyniku probuje pobrac go z darmowego API. */
+    /** Dla zakonczonych meczow bez wyniku probuje pobrac go z darmowego API.
+     * Aby nie przekraczac limitow API (Cloudflare 429/1015), grupujemy mecze po dacie i odpytujemy
+     * eventsday.php raz na dzien, a wyszukiwanie po nazwach (searchevents.php) odpalamy tylko dla
+     * meczow, ktorych nie udalo sie rozstrzygnac po dacie. Miedzy zapytaniami stosujemy odstep. */
     public void fetchMissingResults() {
         Instant now = Instant.now();
+
+        // Mecze zakonczone (po kickoff + czas trwania), bez wyniku i nie po wyczerpaniu limitu prob.
+        java.util.Map<String, List<Match>> byDate = new java.util.LinkedHashMap<>();
         for (Match match : matchRepository.findAll()) {
             if (match.getActualScore1() != null) continue;
+            if (fetchAttempts.getOrDefault(match.getId(), 0) >= MAX_FETCH_ATTEMPTS) continue; // poddalismy sie
             Instant kickoff = Instant.parse(match.getKickoffUtc());
             if (now.isBefore(kickoff.plus(MATCH_DURATION))) continue; // mecz jeszcze trwa
+            String dateUtc = kickoff.atZone(ZoneOffset.UTC).toLocalDate().toString();
+            byDate.computeIfAbsent(dateUtc, d -> new java.util.ArrayList<>()).add(match);
+        }
+        if (byDate.isEmpty()) return;
 
-            int[] result = fetchResult(match);
-            if (result != null) {
-                match.setActualScore1(result[0]);
-                match.setActualScore2(result[1]);
-                matchRepository.save(match);
-                log.info("Pobrano wynik {} - {}: {}:{}",
-                        match.getTeam1En(), match.getTeam2En(), result[0], result[1]);
+        // 1) Jedno zapytanie eventsday.php na dzien rozstrzyga zwykle wszystkie mecze tego dnia.
+        List<Match> stillMissing = new java.util.ArrayList<>();
+        for (var entry : byDate.entrySet()) {
+            List<DayEvent> events = fetchEventsForDate(entry.getKey());
+            for (Match match : entry.getValue()) {
+                int[] result = (events == null) ? null : matchInEvents(match, events);
+                if (result != null) {
+                    saveResult(match, result);
+                } else {
+                    stillMissing.add(match);
+                }
             }
         }
+
+        // 2) Zapasowo: dla nadal brakujacych szukamy po nazwach druzyn.
+        for (Match match : stillMissing) {
+            int[] result = fetchResultBySearch(match);
+            if (result != null) {
+                saveResult(match, result);
+            }
+        }
+
+        // Mecze, ktorych w tym cyklu nie udalo sie pobrac - zwieksz licznik prob i po limicie odpusc.
+        for (Match match : stillMissing) {
+            if (match.getActualScore1() != null) continue; // rozstrzygniety przez wyszukiwanie
+            int attempts = fetchAttempts.merge(match.getId(), 1, Integer::sum);
+            if (attempts == MAX_FETCH_ATTEMPTS) {
+                log.warn("Po {} probach nie udalo sie pobrac wyniku {} - {}. Przerywam odpytywanie API "
+                        + "(prawdopodobnie rozbieznosc nazw lub brak meczu w API; uzupelnij recznie).",
+                        attempts, match.getTeam1En(), match.getTeam2En());
+            }
+        }
+    }
+
+    private void saveResult(Match match, int[] result) {
+        match.setActualScore1(result[0]);
+        match.setActualScore2(result[1]);
+        matchRepository.save(match);
+        log.info("Pobrano wynik {} - {}: {}:{}",
+                match.getTeam1En(), match.getTeam2En(), result[0], result[1]);
+    }
+
+    /** Zwraca wynik meczu, jesli wystepuje wsrod podanych wydarzen dnia (porownanie po nazwach druzyn). */
+    private int[] matchInEvents(Match match, List<DayEvent> events) {
+        for (DayEvent event : events) {
+            if (!isFinished(event.strStatus())) continue;
+            if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
+            if (!sameTeams(match.getTeam1En(), match.getTeam2En(), event.strHomeTeam(), event.strAwayTeam())) continue;
+            return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
+        }
+        return null;
     }
 
     /** Dla meczow z wynikiem, ale bez przyznanych punktow - liczy i dopisuje punkty uzytkownikom. */
@@ -106,20 +169,10 @@ public class ResultFetchService {
         }
     }
 
-    /** Najpierw szuka wyniku po dacie, a jesli eventsday.php go nie zwroci (zdarza sie przy
-     * wielu meczach jednego dnia) - probuje wyszukac mecz po nazwach druzyn. */
-    private int[] fetchResult(Match match) {
-        int[] result = fetchResultByDate(match);
-        if (result != null) {
-            return result;
-        }
-        return fetchResultBySearch(match);
-    }
-
-    /** Szuka wyniku meczu wsrod wszystkich wydarzen MS 2026 w danym dniu (wg daty kickoffu UTC). */
-    private int[] fetchResultByDate(Match match) {
+    /** Pobiera wszystkie wydarzenia MS 2026 z danego dnia (jedno zapytanie eventsday.php). */
+    private List<DayEvent> fetchEventsForDate(String dateUtc) {
         try {
-            String dateUtc = Instant.parse(match.getKickoffUtc()).atZone(ZoneOffset.UTC).toLocalDate().toString();
+            throttle();
             EventsDayResponse response = restClient.get()
                     .uri(uriBuilder -> uriBuilder.path("/eventsday.php")
                             .queryParam("d", dateUtc)
@@ -128,20 +181,11 @@ public class ResultFetchService {
                     .retrieve()
                     .body(EventsDayResponse.class);
 
-            if (response == null || response.events() == null) {
-                return null;
-            }
-            for (DayEvent event : response.events()) {
-                if (!isFinished(event.strStatus())) continue;
-                if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
-                if (!sameTeams(match.getTeam1En(), match.getTeam2En(), event.strHomeTeam(), event.strAwayTeam())) continue;
-                return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
-            }
+            return (response == null) ? null : response.events();
         } catch (Exception e) {
-            log.warn("Nie udalo sie pobrac wyniku dla {} - {}: {}",
-                    match.getTeam1En(), match.getTeam2En(), e.getMessage());
+            log.warn("Nie udalo sie pobrac wydarzen dnia {}: {}", dateUtc, e.getMessage());
+            return null;
         }
-        return null;
     }
 
     /** Zapasowo: szuka meczu po nazwach druzyn (np. gdy eventsday.php nie zwrocil go w danym dniu).
@@ -151,6 +195,7 @@ public class ResultFetchService {
     private int[] fetchResultBySearch(Match match) {
         for (String query : searchQueries(match.getTeam1En(), match.getTeam2En())) {
             try {
+                throttle();
                 SearchEventsResponse response = restClient.get()
                         .uri(uriBuilder -> uriBuilder.path("/searchevents.php")
                                 .queryParam("e", query)
@@ -254,38 +299,36 @@ public class ResultFetchService {
 
     /** Szuka meczu finalowego MS 2026 w TheSportsDB i zwraca kod ISO druzyny zwycieskiej. */
     private String fetchChampionCode() {
-        try {
-            EventsDayResponse response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder.path("/eventsday.php")
-                            .queryParam("d", FINAL_DATE)
-                            .queryParam("l", WORLD_CUP_LEAGUE_ID)
-                            .build())
-                    .retrieve()
-                    .body(EventsDayResponse.class);
+        List<DayEvent> events = fetchEventsForDate(FINAL_DATE);
+        if (events == null) {
+            return null;
+        }
+        for (DayEvent event : events) {
+            if (!isFinal(event.strEvent())) continue;
+            if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
 
-            if (response == null || response.events() == null) {
-                return null;
+            int home = Integer.parseInt(event.intHomeScore());
+            int away = Integer.parseInt(event.intAwayScore());
+            String winnerEn;
+            if (home > away) {
+                winnerEn = event.strHomeTeam();
+            } else if (away > home) {
+                winnerEn = event.strAwayTeam();
+            } else {
+                continue; // remis bez wyniku karnych - sprobuj ponownie, gdy API zaktualizuje dane
             }
-            for (DayEvent event : response.events()) {
-                if (!isFinal(event.strEvent())) continue;
-                if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
-
-                int home = Integer.parseInt(event.intHomeScore());
-                int away = Integer.parseInt(event.intAwayScore());
-                String winnerEn;
-                if (home > away) {
-                    winnerEn = event.strHomeTeam();
-                } else if (away > home) {
-                    winnerEn = event.strAwayTeam();
-                } else {
-                    continue; // remis bez wyniku karnych - sprobuj ponownie, gdy API zaktualizuje dane
-                }
-                return Teams.ENGLISH_TO_CODE.get(winnerEn);
-            }
-        } catch (Exception e) {
-            log.warn("Nie udalo sie pobrac wyniku finalu MS 2026: {}", e.getMessage());
+            return Teams.ENGLISH_TO_CODE.get(winnerEn);
         }
         return null;
+    }
+
+    /** Krotki odstep przed kazdym zapytaniem do API, by uniknac limitow (Cloudflare 429/1015). */
+    private void throttle() {
+        try {
+            Thread.sleep(API_THROTTLE_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Rozpoznaje mecz finalowy (a nie polfinal / mecz o 3. miejsce) po nazwie wydarzenia. */
