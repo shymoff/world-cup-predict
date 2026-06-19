@@ -144,31 +144,58 @@ public class ResultFetchService {
         return null;
     }
 
-    /** Zapasowo: szuka meczu po nazwach druzyn (np. gdy eventsday.php nie zwrocil go w danym dniu). */
+    /** Zapasowo: szuka meczu po nazwach druzyn (np. gdy eventsday.php nie zwrocil go w danym dniu).
+     * searchevents.php dopasowuje po nazwie wydarzenia, a TheSportsDB nazywa niektore druzyny inaczej
+     * niz my (np. "Bosnia-Herzegovina" zamiast "Bosnia and Herzegovina"), dlatego probujemy kilku
+     * wariantow zapytania. Ostatecznie i tak weryfikujemy mecz przez sameTeams(). */
     private int[] fetchResultBySearch(Match match) {
-        try {
-            String query = (match.getTeam1En() + "_vs_" + match.getTeam2En()).replace(" ", "_");
-            SearchEventsResponse response = restClient.get()
-                    .uri(uriBuilder -> uriBuilder.path("/searchevents.php")
-                            .queryParam("e", query)
-                            .build())
-                    .retrieve()
-                    .body(SearchEventsResponse.class);
+        for (String query : searchQueries(match.getTeam1En(), match.getTeam2En())) {
+            try {
+                SearchEventsResponse response = restClient.get()
+                        .uri(uriBuilder -> uriBuilder.path("/searchevents.php")
+                                .queryParam("e", query)
+                                .build())
+                        .retrieve()
+                        .body(SearchEventsResponse.class);
 
-            if (response == null || response.event() == null) {
-                return null;
+                if (response == null || response.event() == null) {
+                    continue;
+                }
+                for (DayEvent event : response.event()) {
+                    if (!isFinished(event.strStatus())) continue;
+                    if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
+                    if (!sameTeams(match.getTeam1En(), match.getTeam2En(), event.strHomeTeam(), event.strAwayTeam())) continue;
+                    return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
+                }
+            } catch (Exception e) {
+                log.warn("Nie udalo sie pobrac wyniku (search) dla {} - {}: {}",
+                        match.getTeam1En(), match.getTeam2En(), e.getMessage());
             }
-            for (DayEvent event : response.event()) {
-                if (!isFinished(event.strStatus())) continue;
-                if (event.intHomeScore() == null || event.intAwayScore() == null) continue;
-                if (!sameTeams(match.getTeam1En(), match.getTeam2En(), event.strHomeTeam(), event.strAwayTeam())) continue;
-                return new int[]{Integer.parseInt(event.intHomeScore()), Integer.parseInt(event.intAwayScore())};
-            }
-        } catch (Exception e) {
-            log.warn("Nie udalo sie pobrac wyniku (search) dla {} - {}: {}",
-                    match.getTeam1En(), match.getTeam2En(), e.getMessage());
         }
         return null;
+    }
+
+    /** Buduje kandydujace zapytania "Home_vs_Away" dla searchevents.php, uwzgledniajac roznice
+     * w pisowni nazw (TheSportsDB stosuje np. "Bosnia-Herzegovina" zamiast "Bosnia and Herzegovina"). */
+    private List<String> searchQueries(String home, String away) {
+        List<String> queries = new java.util.ArrayList<>();
+        for (String h : nameVariants(home)) {
+            for (String a : nameVariants(away)) {
+                String q = (h + "_vs_" + a).replace(" ", "_");
+                if (!queries.contains(q)) queries.add(q);
+            }
+        }
+        return queries;
+    }
+
+    /** Warianty pisowni nazwy druzyny uzywane przez TheSportsDB (np. "X and Y" oraz "X-Y"). */
+    private List<String> nameVariants(String name) {
+        List<String> variants = new java.util.ArrayList<>();
+        variants.add(name);
+        if (name.contains(" and ")) {
+            variants.add(name.replace(" and ", "-"));
+        }
+        return variants;
     }
 
     /** Porownuje pary nazw druzyn ignorujac wielkosc liter oraz roznice typu "and" / "-". */
