@@ -1,7 +1,9 @@
 package com.worldcup.service;
 
 import com.worldcup.model.Match;
+import com.worldcup.model.Prediction;
 import com.worldcup.repository.MatchRepository;
+import com.worldcup.repository.PredictionRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
@@ -20,17 +22,40 @@ import java.util.List;
 public class DataSeeder implements CommandLineRunner {
 
     private final MatchRepository repository;
+    private final PredictionRepository predictionRepository;
 
-    public DataSeeder(MatchRepository repository) {
+    public DataSeeder(MatchRepository repository, PredictionRepository predictionRepository) {
         this.repository = repository;
+        this.predictionRepository = predictionRepository;
     }
 
     @Override
     public void run(String... args) {
-        if (repository.count() > 0) {
-            return; // baza juz wypelniona - nie duplikujemy
+        if (repository.count() == 0) {
+            seedGroupStage(); // pelna faza grupowa + mecz testowy z API
         }
+        removeLegacyTestKnockoutMatches(); // mecze pucharowe pochodza teraz z synchronizacji z API
+    }
 
+    /**
+     * Usuwa wczesniejsze testowe mecze pucharowe (roundName != null bez externalId) wraz z typami.
+     * Mecze fazy pucharowej pochodza obecnie z synchronizacji z football-data.org (maja externalId).
+     */
+    private void removeLegacyTestKnockoutMatches() {
+        List<Match> legacy = repository.findByRoundNameIsNotNullAndExternalIdIsNull();
+        if (legacy.isEmpty()) {
+            return;
+        }
+        for (Match m : legacy) {
+            List<Prediction> preds = predictionRepository.findByMatchId(m.getId());
+            if (!preds.isEmpty()) {
+                predictionRepository.deleteAll(preds);
+            }
+        }
+        repository.deleteAll(legacy);
+    }
+
+    private void seedGroupStage() {
         List<Match> m = new ArrayList<>();
         // Godziny podane w czasie wschodnim USA (ET); metoda 'add' przelicza je na UTC.
         // 'addLate' = mecz o 00:00 ET, ktory nalezy jeszcze do poprzedniego dnia meczowego.

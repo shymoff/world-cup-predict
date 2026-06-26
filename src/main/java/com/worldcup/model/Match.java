@@ -32,6 +32,14 @@ public class Match {
     private Integer actualScore2;
     private boolean pointsAwarded; // czy punkty za ten mecz zostaly juz przyznane
 
+    // Faza pucharowa: nazwa rundy ("1/16", "1/8", "1/4", "1/2", "Final"). null => mecz fazy grupowej.
+    private String roundName;
+    // Faza pucharowa: kod ISO druzyny, ktora awansowala do nastepnej fazy (po ew. karnych).
+    // Dla rozstrzygnietych meczow rowny zwyciezcy; przy remisie uzupelniany osobno (karne).
+    private String advancingCode;
+    // Identyfikator meczu w football-data.org (klucz do synchronizacji meczow pucharowych).
+    private Long externalId;
+
     public Match() {
     }
 
@@ -147,5 +155,38 @@ public class Match {
 
     public void setPointsAwarded(boolean pointsAwarded) {
         this.pointsAwarded = pointsAwarded;
+    }
+
+    public String getRoundName() {
+        return roundName;
+    }
+
+    public void setRoundName(String roundName) {
+        this.roundName = roundName;
+    }
+
+    public boolean isKnockout() {
+        return roundName != null;
+    }
+
+    public String getAdvancingCode() {
+        return advancingCode;
+    }
+
+    public void setAdvancingCode(String advancingCode) {
+        this.advancingCode = advancingCode;
+    }
+
+    public Long getExternalId() {
+        return externalId;
+    }
+
+    public void setExternalId(Long externalId) {
+        this.externalId = externalId;
+    }
+
+    /** Czy znamy juz obie druzyny (mecze pucharowe sa tworzone zanim padna rozstrzygniecia grup). */
+    public boolean hasTeams() {
+        return team1Code != null && team2Code != null;
     }
 }

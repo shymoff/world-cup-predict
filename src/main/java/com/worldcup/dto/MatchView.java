@@ -24,6 +24,9 @@ public class MatchView {
     private final Integer actualScore1;
     private final Integer actualScore2;
     private final Integer pointsEarned;
+    private final String roundName;       // null => mecz fazy grupowej; inaczej runda pucharowa
+    private final String advancing;        // kod ISO druzyny typowanej do awansu (faza pucharowa)
+    private final String actualAdvancing;  // kod ISO druzyny, ktora faktycznie awansowala
 
     public MatchView(Match m, Prediction p) {
         this.id = m.getId();
@@ -36,22 +39,45 @@ public class MatchView {
         this.team2Code = m.getTeam2Code();
         this.actualScore1 = m.getActualScore1();
         this.actualScore2 = m.getActualScore2();
+        this.roundName = m.getRoundName();
+        this.actualAdvancing = m.getAdvancingCode();
         if (p != null && p.getScore1() != null && p.getScore2() != null) {
             this.score1 = p.getScore1();
             this.score2 = p.getScore2();
             this.played = true;
+            this.advancing = predictedAdvancing(m, p);
         } else {
             this.score1 = null;
             this.score2 = null;
             this.played = false;
+            this.advancing = null;
         }
         if (actualScore1 != null && actualScore2 != null) {
-            this.pointsEarned = this.played
-                    ? ScoringService.points(score1, score2, actualScore1, actualScore2)
-                    : 0;
+            this.pointsEarned = computePoints(m);
         } else {
             this.pointsEarned = null;
         }
+    }
+
+    /** Druzyna typowana do awansu: przy wygranej wynika z wyniku, przy remisie z osobnego typu (karne). */
+    private String predictedAdvancing(Match m, Prediction p) {
+        if (!m.isKnockout()) {
+            return null;
+        }
+        if (score1 > score2) return m.getTeam1Code();
+        if (score1 < score2) return m.getTeam2Code();
+        return p.getAdvancingCode();
+    }
+
+    private Integer computePoints(Match m) {
+        if (!this.played) {
+            return 0;
+        }
+        if (m.isKnockout()) {
+            return ScoringService.knockoutPoints(score1, score2, advancing,
+                    actualScore1, actualScore2, actualAdvancing);
+        }
+        return ScoringService.points(score1, score2, actualScore1, actualScore2);
     }
 
     public Long getId() {
@@ -108,5 +134,17 @@ public class MatchView {
 
     public Integer getPointsEarned() {
         return pointsEarned;
+    }
+
+    public String getRoundName() {
+        return roundName;
+    }
+
+    public String getAdvancing() {
+        return advancing;
+    }
+
+    public String getActualAdvancing() {
+        return actualAdvancing;
     }
 }

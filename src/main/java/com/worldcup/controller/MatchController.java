@@ -100,8 +100,19 @@ public class MatchController {
 
         boolean hasResult = request.getScore1() != null && request.getScore2() != null;
         if (hasResult) {
-            prediction.setScore1(Math.max(0, request.getScore1()));
-            prediction.setScore2(Math.max(0, request.getScore2()));
+            int s1 = Math.max(0, request.getScore1());
+            int s2 = Math.max(0, request.getScore2());
+            prediction.setScore1(s1);
+            prediction.setScore2(s2);
+            // Faza pucharowa: przy remisie zapamietujemy typ druzyny awansujacej (karne).
+            // Przy rozstrzygnieciu awans wynika z wyniku, wiec dodatkowy typ nie jest potrzebny.
+            if (match.isKnockout() && s1 == s2) {
+                String adv = request.getAdvancingCode();
+                boolean valid = match.getTeam1Code().equals(adv) || match.getTeam2Code().equals(adv);
+                prediction.setAdvancingCode(valid ? adv : null);
+            } else {
+                prediction.setAdvancingCode(null);
+            }
             predictionRepository.save(prediction);
         } else if (prediction.getId() != null) {
             predictionRepository.delete(prediction); // czyszczenie typu

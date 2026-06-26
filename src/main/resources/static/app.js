@@ -353,19 +353,211 @@ function ChampionPicker() {
     );
 }
 
-// ---- Faza pucharowa (na razie puste sekcje, do uzupelnienia po fazie grupowej) ----
-const RUNDY_PUCHAROWE = ["1/32", "1/16", "1/8", "1/4", "1/2", "Finał"];
+// ---- Pojedynczy mecz fazy pucharowej (wynik + przy remisie wskazanie awansu) ----
+function KnockoutMatchRow({ match, onSaved }) {
+    const [s1, setS1] = useState(match.score1 ?? "");
+    const [s2, setS2] = useState(match.score2 ?? "");
+    const [adv, setAdv] = useState(match.advancing ?? "");
+    const [saving, setSaving] = useState(false);
+    const [justSaved, setJustSaved] = useState(false);
 
-function KnockoutStage() {
+    useEffect(() => {
+        setS1(match.score1 ?? "");
+        setS2(match.score2 ?? "");
+        setAdv(match.advancing ?? "");
+    }, [match.score1, match.score2, match.advancing]);
+
+    // Drużyny pucharowe są znane dopiero po fazie grupowej - do tego czasu nie da się typować.
+    const teamsKnown = !!(match.team1Code && match.team2Code);
+    const locked = !teamsKnown || new Date() >= new Date(match.kickoffUtc);
+    const bothFilled = s1 !== "" && s2 !== "";
+    const isDraw = bothFilled && Number(s1) === Number(s2);
+    // Przy remisie trzeba wskazac druzyne awansujaca (karne); przy wygranej wynika z wyniku.
+    const advForDraw = isDraw ? adv : "";
+    const complete = bothFilled && (!isDraw || adv !== "");
+
+    const dirty =
+        String(s1) !== String(match.score1 ?? "") ||
+        String(s2) !== String(match.score2 ?? "") ||
+        String(advForDraw) !== String(isDrawSaved(match) ? (match.advancing ?? "") : "");
+
+    async function save() {
+        if (!complete || locked) return;
+        setSaving(true);
+        await api(`${API}/matches/${match.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                score1: Number(s1),
+                score2: Number(s2),
+                advancingCode: isDraw ? adv : null,
+            }),
+        });
+        setSaving(false);
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 1500);
+        onSaved();
+    }
+
+    async function clear() {
+        setSaving(true);
+        await api(`${API}/matches/${match.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ score1: null, score2: null, advancingCode: null }),
+        });
+        setS1("");
+        setS2("");
+        setAdv("");
+        setSaving(false);
+        onSaved();
+    }
+
+    function onKey(e) {
+        if (e.key === "Enter") save();
+    }
+
+    const t = kickoffInfo(match.kickoffUtc, match.date);
+    const kd = formatDate(match.date);
+    const hasActual = match.actualScore1 != null && match.actualScore2 != null;
+    const actualAdvName = match.actualAdvancing === match.team1Code ? match.team1Name
+        : match.actualAdvancing === match.team2Code ? match.team2Name : null;
+
+    return (
+        <div className={"match-row knockout-row" + (match.played ? " played" : "") + (locked ? " locked" : "")}>
+            <div className="match-group">
+                <span className="kdate">📅 {kd.weekday}, {kd.label}</span>
+                <span className="dot">·</span>
+                <span className="kick">🕑 {t.pl}</span>
+                <span className="dot">·</span>
+                <span className="grp">Faza pucharowa</span>
+                <span className="et">{t.et} ET</span>
+                {hasActual && (
+                    <React.Fragment>
+                        <span className="dot">·</span>
+                        <span className="actual-result">
+                            Wynik: {match.actualScore1}:{match.actualScore2}
+                            {actualAdvName ? ` (awans: ${actualAdvName})` : ""}
+                        </span>
+                    </React.Fragment>
+                )}
+                {match.pointsEarned != null && (
+                    <span className={"points-badge" + (match.pointsEarned > 0 ? " hit" : "")}>
+                        {match.pointsEarned > 0 ? `+${match.pointsEarned} pkt` : "0 pkt"}
+                    </span>
+                )}
+            </div>
+
+            <div className="team home">
+                <span className={"name" + (teamsKnown ? "" : " tbd")}>{match.team1Name || "do ustalenia"}</span>
+                {teamsKnown && <Flag code={match.team1Code} name={match.team1Name} />}
+            </div>
+
+            <div className="score-box">
+                <input type="number" min="0" value={s1} onKeyDown={onKey} disabled={locked}
+                       onChange={(e) => setS1(e.target.value)} />
+                <span className="sep">:</span>
+                <input type="number" min="0" value={s2} onKeyDown={onKey} disabled={locked}
+                       onChange={(e) => setS2(e.target.value)} />
+            </div>
+
+            <div className="team away">
+                {teamsKnown && <Flag code={match.team2Code} name={match.team2Name} />}
+                <span className={"name" + (teamsKnown ? "" : " tbd")}>{match.team2Name || "do ustalenia"}</span>
+            </div>
+
+            {isDraw && (
+                <div className="advancing-pick">
+                    <span className="advancing-label">Kto awansuje po karnych?</span>
+                    <div className="advancing-options">
+                        <button type="button" disabled={locked}
+                                className={"adv-btn" + (adv === match.team1Code ? " active" : "")}
+                                onClick={() => setAdv(match.team1Code)}>
+                            <Flag code={match.team1Code} name={match.team1Name} />
+                            {match.team1Name}
+                        </button>
+                        <button type="button" disabled={locked}
+                                className={"adv-btn" + (adv === match.team2Code ? " active" : "")}
+                                onClick={() => setAdv(match.team2Code)}>
+                            <Flag code={match.team2Code} name={match.team2Name} />
+                            {match.team2Name}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="row-actions">
+                {!teamsKnown ? (
+                    <span className="locked-badge">⏳ Drużyny po fazie grupowej</span>
+                ) : locked ? (
+                    <span className="locked-badge">🔒 Zakłady zamknięte</span>
+                ) : (
+                    <React.Fragment>
+                        <button className="btn btn-save" disabled={!complete || !dirty || saving}
+                                onClick={save}>
+                            {saving ? "Zapisywanie…" : "Zapisz"}
+                        </button>
+                        {match.played && (
+                            <button className="btn btn-clear" disabled={saving} onClick={clear}>
+                                Wyczyść
+                            </button>
+                        )}
+                        {justSaved && <span className="saved-badge">✓ zapisano</span>}
+                        {isDraw && adv === "" && (
+                            <span className="advancing-hint">Wskaż drużynę awansującą</span>
+                        )}
+                    </React.Fragment>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// Czy zapisany typ to remis (wtedy ma znaczenie zapamietany kod awansu)
+function isDrawSaved(match) {
+    return match.score1 != null && match.score2 != null && match.score1 === match.score2;
+}
+
+// ---- Faza pucharowa: typ na mistrza + mecze pogrupowane wg rund ----
+const RUNDY_PUCHAROWE = ["1/16", "1/8", "1/4", "1/2", "Finał"];
+
+function KnockoutStage({ matches, onSaved }) {
+    const byRound = useMemo(() => {
+        const map = new Map();
+        matches.forEach((m) => {
+            if (!map.has(m.roundName)) map.set(m.roundName, []);
+            map.get(m.roundName).push(m);
+        });
+        return map;
+    }, [matches]);
+
     return (
         <div className="knockout">
             <ChampionPicker />
-            {RUNDY_PUCHAROWE.map((runda) => (
-                <div className="knockout-section" key={runda}>
-                    <h2>{runda}</h2>
-                    <p className="knockout-placeholder">Mecze zostaną uzupełnione po zakończeniu fazy grupowej.</p>
-                </div>
-            ))}
+            <div className="knockout-rules">
+                <h2>📋 Punktacja fazy pucharowej</h2>
+                <ul>
+                    <li><strong>4 pkt</strong> — dokładny wynik (czyli też trafiony awans)</li>
+                    <li><strong>3 pkt</strong> — dokładny remis, ale zły typ drużyny awansującej</li>
+                    <li><strong>2 pkt</strong> — niedokładny wynik, ale trafiony awans</li>
+                    <li><strong>1 pkt</strong> — niedokładny remis i zły typ drużyny awansującej</li>
+                </ul>
+            </div>
+            {RUNDY_PUCHAROWE.map((runda) => {
+                const list = byRound.get(runda) || [];
+                return (
+                    <div className="knockout-section" key={runda}>
+                        <h2>{runda}</h2>
+                        {list.length === 0 ? (
+                            <p className="knockout-placeholder">Mecze zostaną uzupełnione po zakończeniu fazy grupowej.</p>
+                        ) : (
+                            list.map((m) => (
+                                <KnockoutMatchRow key={m.id} match={m} onSaved={onSaved} />
+                            ))
+                        )}
+                    </div>
+                );
+            })}
         </div>
     );
 }
@@ -393,16 +585,20 @@ function App({ user, onLogout }) {
         return () => clearInterval(id);
     }, []);
 
+    // Mecze fazy grupowej (zakladka "Mecze") oraz pucharowej (zakladka "Faza pucharowa")
+    const groupMatches = useMemo(() => matches.filter((m) => !m.roundName), [matches]);
+    const koMatches = useMemo(() => matches.filter((m) => m.roundName), [matches]);
+
     const groups = useMemo(
-        () => [...new Set(matches.map((m) => m.groupName))].sort(),
-        [matches]
+        () => [...new Set(groupMatches.map((m) => m.groupName))].sort(),
+        [groupMatches]
     );
 
     const filtered = useMemo(
         () => (groupFilter === "ALL"
-            ? matches
-            : matches.filter((m) => m.groupName === groupFilter)),
-        [matches, groupFilter]
+            ? groupMatches
+            : groupMatches.filter((m) => m.groupName === groupFilter)),
+        [groupMatches, groupFilter]
     );
 
     // Grupowanie po dacie z zachowaniem kolejnosci chronologicznej
@@ -457,7 +653,7 @@ function App({ user, onLogout }) {
                 {tab === "leaderboard" ? (
                     <Leaderboard me={user} />
                 ) : tab === "knockout" ? (
-                    <KnockoutStage />
+                    <KnockoutStage matches={koMatches} onSaved={loadAll} />
                 ) : (
                     <React.Fragment>
                         <div className="group-filter">

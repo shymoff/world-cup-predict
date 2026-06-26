@@ -23,6 +23,8 @@ public class Prediction {
     private Long matchId;
     private Integer score1;
     private Integer score2;
+    // Faza pucharowa: kod ISO druzyny, ktora wg typujacego awansuje (istotne przy remisie - karne).
+    private String advancingCode;
 
     public Prediction() {
     }
@@ -68,5 +70,13 @@ public class Prediction {
 
     public void setScore2(Integer score2) {
         this.score2 = score2;
+    }
+
+    public String getAdvancingCode() {
+        return advancingCode;
+    }
+
+    public void setAdvancingCode(String advancingCode) {
+        this.advancingCode = advancingCode;
     }
 }

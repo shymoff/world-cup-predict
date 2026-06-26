@@ -570,6 +570,104 @@ header.app-header .tagline {
     font-size: 14px;
 }
 
+.knockout-rules {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(10px);
+}
+
+.knockout-rules h2 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: var(--gold);
+}
+
+.knockout-rules ul {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.7;
+}
+
+.knockout-rules strong {
+    color: var(--accent-bright);
+}
+
+/* Wybor druzyny awansujacej przy typie na remis */
+.advancing-pick {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+}
+
+.advancing-options {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.advancing-label {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--gold);
+    text-align: center;
+}
+
+.adv-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text);
+    background: rgba(9, 13, 20, 0.55);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.adv-btn .flag {
+    width: 24px;
+    height: 16px;
+}
+
+.adv-btn:hover:not(:disabled) {
+    border-color: var(--accent-2);
+}
+
+.adv-btn.active {
+    border-color: var(--accent);
+    background: rgba(16, 185, 129, 0.14);
+    color: var(--accent-bright);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.18);
+}
+
+.adv-btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.advancing-hint {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gold);
+}
+
 /* ---------- Filtr grup ---------- */
 
 .group-filter {
@@ -707,6 +805,11 @@ header.app-header .tagline {
     font-variant-numeric: tabular-nums;
 }
 
+.match-group .kdate {
+    color: var(--text);
+    font-weight: 600;
+}
+
 .match-group .dot {
     color: var(--border-strong);
 }
@@ -767,6 +870,12 @@ header.app-header .tagline {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.team .name.tbd {
+    color: var(--muted);
+    font-style: italic;
+    font-weight: 500;
 }
 
 .flag {

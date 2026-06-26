@@ -13,4 +13,10 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
 
     // Pierwszy mecz turnieju (z pominieciem meczu testowego "TEST") - wyznacza moment blokady typu na mistrza
     Optional<Match> findFirstByGroupNameNotOrderByKickoffUtcAsc(String groupName);
+
+    // Mecz pucharowy po identyfikatorze z football-data.org (klucz synchronizacji)
+    Optional<Match> findByExternalId(Long externalId);
+
+    // Legacy: testowe mecze pucharowe (roundName != null) bez powiazania z API - do jednorazowego usuniecia
+    List<Match> findByRoundNameIsNotNullAndExternalIdIsNull();
 }

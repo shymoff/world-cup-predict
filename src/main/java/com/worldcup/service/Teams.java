@@ -1,5 +1,6 @@
 package com.worldcup.service;
 
+import java.text.Normalizer;
 import java.util.Map;
 
 /**
@@ -118,7 +119,38 @@ public final class Teams {
             Map.entry("Nigeria", "Nigeria")
     );
 
-    /** Mapowanie angielskiej nazwy druzyny (jak w TheSportsDB) na kod ISO flagi. */
+    /** Mapowanie angielskiej nazwy druzyny (nasza pisownia) na kod ISO flagi. */
     public static final Map<String, String> ENGLISH_TO_CODE = EN_NAMES.entrySet().stream()
             .collect(java.util.stream.Collectors.toMap(Map.Entry::getValue, e -> CODES.get(e.getKey())));
+
+    /** Mapowanie kodu ISO flagi na polska nazwe druzyny (odwrotnosc CODES). */
+    public static final Map<String, String> CODE_TO_PL = CODES.entrySet().stream()
+            .collect(java.util.stream.Collectors.toMap(Map.Entry::getValue, Map.Entry::getKey));
+
+    // Znormalizowana angielska nazwa -> kod ISO (do odpornego dopasowania nazw z football-data.org).
+    private static final Map<String, String> NORMALIZED_EN_TO_CODE = ENGLISH_TO_CODE.entrySet().stream()
+            .collect(java.util.stream.Collectors.toMap(e -> normalize(e.getKey()), Map.Entry::getValue));
+
+    // Roznice w pisowni football-data.org wzgledem naszych nazw, ktorych nie wyrownuje normalizacja.
+    private static final Map<String, String> FOOTBALL_DATA_ALIASES = Map.of(
+            normalize("Cape Verde Islands"), "cv",
+            normalize("Congo DR"), "cd",
+            normalize("Czechia"), "cz",
+            normalize("United States"), "us");
+
+    /** Zwraca kod ISO flagi dla angielskiej nazwy druzyny z football-data.org (lub null gdy nieznana). */
+    public static String codeForFootballDataName(String name) {
+        if (name == null) {
+            return null;
+        }
+        String norm = normalize(name);
+        String alias = FOOTBALL_DATA_ALIASES.get(norm);
+        return alias != null ? alias : NORMALIZED_EN_TO_CODE.get(norm);
+    }
+
+    /** Normalizacja nazwy: bez diakrytykow, malymi literami, bez "and"/"-", pojedyncze spacje. */
+    static String normalize(String name) {
+        String noDiacritics = Normalizer.normalize(name, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return noDiacritics.toLowerCase().replace(" and ", " ").replace("-", " ").replaceAll("\\s+", " ").trim();
+    }
 }
