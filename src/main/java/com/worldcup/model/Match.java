@@ -32,7 +32,8 @@ public class Match {
     private Integer actualScore2;
     private boolean pointsAwarded; // czy punkty za ten mecz zostaly juz przyznane
 
-    // Faza pucharowa: nazwa rundy ("1/16", "1/8", "1/4", "1/2", "Final"). null => mecz fazy grupowej.
+    // Faza pucharowa: nazwa rundy ("1/16", "1/8", "Cwiercfinal", "Polfinal", "Mecz o 3. miejsce",
+    // "Final"). null => mecz fazy grupowej.
     private String roundName;
     // Faza pucharowa: kod ISO druzyny, ktora awansowala do nastepnej fazy (po ew. karnych).
     // Dla rozstrzygnietych meczow rowny zwyciezcy; przy remisie uzupelniany osobno (karne).

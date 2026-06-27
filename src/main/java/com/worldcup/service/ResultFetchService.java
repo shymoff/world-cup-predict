@@ -40,12 +40,13 @@ public class ResultFetchService {
 
     private static final String FINAL_ROUND = "Finał";
 
-    // Mapowanie etapow football-data.org na nasze etykiety rund (THIRD_PLACE celowo pomijamy).
+    // Mapowanie etapow football-data.org na nasze etykiety rund.
     private static final Map<String, String> STAGE_TO_ROUND = Map.of(
             "LAST_32", "1/16",
             "LAST_16", "1/8",
-            "QUARTER_FINALS", "1/4",
-            "SEMI_FINALS", "1/2",
+            "QUARTER_FINALS", "Ćwierćfinał",
+            "SEMI_FINALS", "Półfinał",
+            "THIRD_PLACE", "Mecz o 3. miejsce",
             "FINAL", FINAL_ROUND);
 
     private final MatchRepository matchRepository;
@@ -122,7 +123,7 @@ public class ResultFetchService {
             } else if (round != null) {
                 upsertKnockout(fd, round);
             }
-            // THIRD_PLACE i inne nieobslugiwane etapy pomijamy
+            // pozostale, nieobslugiwane etapy pomijamy
         }
     }
 

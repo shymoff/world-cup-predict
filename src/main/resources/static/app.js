@@ -449,8 +449,8 @@ function KnockoutMatchRow({ match, onSaved }) {
             </div>
 
             <div className="team home">
-                <span className={"name" + (teamsKnown ? "" : " tbd")}>{match.team1Name || "do ustalenia"}</span>
-                {teamsKnown && <Flag code={match.team1Code} name={match.team1Name} />}
+                <span className={"name" + (match.team1Code ? "" : " tbd")}>{match.team1Name || "do ustalenia"}</span>
+                {match.team1Code && <Flag code={match.team1Code} name={match.team1Name} />}
             </div>
 
             <div className="score-box">
@@ -462,8 +462,8 @@ function KnockoutMatchRow({ match, onSaved }) {
             </div>
 
             <div className="team away">
-                {teamsKnown && <Flag code={match.team2Code} name={match.team2Name} />}
-                <span className={"name" + (teamsKnown ? "" : " tbd")}>{match.team2Name || "do ustalenia"}</span>
+                {match.team2Code && <Flag code={match.team2Code} name={match.team2Name} />}
+                <span className={"name" + (match.team2Code ? "" : " tbd")}>{match.team2Name || "do ustalenia"}</span>
             </div>
 
             {isDraw && (
@@ -519,7 +519,7 @@ function isDrawSaved(match) {
 }
 
 // ---- Faza pucharowa: typ na mistrza + mecze pogrupowane wg rund ----
-const RUNDY_PUCHAROWE = ["1/16", "1/8", "1/4", "1/2", "Finał"];
+const RUNDY_PUCHAROWE = ["1/16", "1/8", "Ćwierćfinał", "Półfinał", "Mecz o 3. miejsce", "Finał"];
 
 function KnockoutStage({ matches, onSaved }) {
     const byRound = useMemo(() => {
