@@ -394,6 +394,14 @@ header.app-header .tagline {
     font-weight: 600;
 }
 
+/* Trofeum za 1. miejsce w rankingu (zamiast medalu) */
+.trophy-icon {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    vertical-align: middle;
+}
+
 .you-badge {
     margin-left: 8px;
     padding: 2px 8px;

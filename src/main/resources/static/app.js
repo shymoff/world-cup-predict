@@ -299,7 +299,11 @@ function Leaderboard({ me }) {
                 <tbody>
                     {entries.map((e, i) => (
                         <tr key={e.username} className={e.username === me ? "me" : ""}>
-                            <td className="lb-rank">{i < 3 ? MEDALE[i] : i + 1}</td>
+                            <td className="lb-rank">
+                                {i === 0 ? (
+                                    <img src="mundial_trophy.png" alt="1. miejsce" className="trophy-icon" />
+                                ) : i < 3 ? MEDALE[i] : i + 1}
+                            </td>
                             <td className="lb-name">
                                 {e.username}
                                 {e.username === me && <span className="you-badge">Ty</span>}
