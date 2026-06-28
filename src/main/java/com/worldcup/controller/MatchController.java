@@ -6,6 +6,7 @@ import com.worldcup.dto.LeaderboardEntry;
 import com.worldcup.dto.MatchView;
 import com.worldcup.dto.ResultRequest;
 import com.worldcup.dto.TeamOption;
+import com.worldcup.dto.UserPredictionView;
 import com.worldcup.model.Match;
 import com.worldcup.model.Prediction;
 import com.worldcup.model.TournamentState;
@@ -120,6 +121,32 @@ public class MatchController {
         }
 
         return ResponseEntity.ok(new MatchView(match, prediction));
+    }
+
+    /** Typy wszystkich uzytkownikow na dany mecz - widoczne dopiero po jego zablokowaniu (start meczu). */
+    @GetMapping("/matches/{id}/predictions")
+    public ResponseEntity<List<UserPredictionView>> getMatchPredictions(
+            @RequestHeader(value = "Authorization", required = false) String auth,
+            @PathVariable Long id) {
+
+        requireUser(auth);
+
+        Match match = matchRepository.findById(id).orElse(null);
+        if (match == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (Instant.now().isBefore(Instant.parse(match.getKickoffUtc()))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        List<UserPredictionView> predictions = predictionRepository.findByMatchId(id).stream()
+                .filter(p -> p.getScore1() != null && p.getScore2() != null)
+                .map(UserPredictionView::new)
+                .sorted(Comparator.comparing(UserPredictionView::getUsername, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+
+        return ResponseEntity.ok(predictions);
     }
 
     /** Ranking wszystkich zarejestrowanych uzytkownikow (na poczatek kazdy ma 0 punktow). */

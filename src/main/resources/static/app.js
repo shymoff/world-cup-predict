@@ -67,6 +67,66 @@ function Flag({ code, name }) {
     return <img className="flag" src={flagUrl(code)} alt={name} title={name} loading="lazy" />;
 }
 
+// ---- Typy innych uzytkownikow na zablokowany mecz (widoczne dopiero po jego rozpoczeciu) ----
+function OthersPredictions({ match }) {
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [predictions, setPredictions] = useState(null);
+    const [error, setError] = useState(false);
+
+    async function toggle() {
+        if (open) {
+            setOpen(false);
+            return;
+        }
+        setOpen(true);
+        if (predictions === null) {
+            setLoading(true);
+            const res = await api(`${API}/matches/${match.id}/predictions`);
+            if (res.ok) {
+                setPredictions(await res.json());
+            } else {
+                setError(true);
+            }
+            setLoading(false);
+        }
+    }
+
+    function advancingName(code) {
+        if (code === match.team1Code) return match.team1Name;
+        if (code === match.team2Code) return match.team2Name;
+        return null;
+    }
+
+    return (
+        <div className="others-predictions">
+            <button type="button" className="btn btn-others" onClick={toggle}>
+                {open ? "Skryj typy innych" : "Pokaż typy innych"}
+            </button>
+            {open && (
+                <div className="others-list">
+                    {loading && <span className="others-hint">Wczytywanie…</span>}
+                    {error && <span className="others-hint">Nie udało się wczytać typów.</span>}
+                    {predictions && predictions.length === 0 && (
+                        <span className="others-hint">Nikt jeszcze nie obstawił tego meczu.</span>
+                    )}
+                    {predictions && predictions.map((p) => (
+                        <div key={p.username} className="other-prediction">
+                            <span className="other-username">{p.username}</span>
+                            <span className="other-score">
+                                {p.score1}:{p.score2}
+                                {p.advancingCode && advancingName(p.advancingCode)
+                                    ? ` (awans: ${advancingName(p.advancingCode)})`
+                                    : ""}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ---- Pojedynczy mecz z edycja wyniku ----
 function MatchRow({ match, onSaved }) {
     const [s1, setS1] = useState(match.score1 ?? "");
@@ -161,7 +221,10 @@ function MatchRow({ match, onSaved }) {
 
             <div className="row-actions">
                 {locked ? (
-                    <span className="locked-badge">🔒 Zakłady zamknięte</span>
+                    <React.Fragment>
+                        <span className="locked-badge">🔒 Zakłady zamknięte</span>
+                        <OthersPredictions match={match} />
+                    </React.Fragment>
                 ) : (
                     <React.Fragment>
                         <button className="btn btn-save" disabled={!bothFilled || !dirty || saving}
@@ -490,7 +553,10 @@ function KnockoutMatchRow({ match, onSaved }) {
                 {!teamsKnown ? (
                     <span className="locked-badge">⏳ Drużyny po fazie grupowej</span>
                 ) : locked ? (
-                    <span className="locked-badge">🔒 Zakłady zamknięte</span>
+                    <React.Fragment>
+                        <span className="locked-badge">🔒 Zakłady zamknięte</span>
+                        <OthersPredictions match={match} />
+                    </React.Fragment>
                 ) : (
                     <React.Fragment>
                         <button className="btn btn-save" disabled={!complete || !dirty || saving}
