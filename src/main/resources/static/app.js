@@ -101,7 +101,7 @@ function OthersPredictions({ match }) {
     return (
         <div className="others-predictions">
             <button type="button" className="btn btn-others" onClick={toggle}>
-                {open ? "Skryj typy innych" : "Pokaż typy innych"}
+                {open ? "Ukryj typy innych" : "Pokaż typy innych"}
             </button>
             {open && (
                 <div className="others-list">
@@ -113,11 +113,18 @@ function OthersPredictions({ match }) {
                     {predictions && predictions.map((p) => (
                         <div key={p.username} className="other-prediction">
                             <span className="other-username">{p.username}</span>
-                            <span className="other-score">
-                                {p.score1}:{p.score2}
-                                {p.advancingCode && advancingName(p.advancingCode)
-                                    ? ` (awans: ${advancingName(p.advancingCode)})`
-                                    : ""}
+                            <span className="other-result">
+                                <span className="other-score">
+                                    {p.score1}:{p.score2}
+                                    {p.advancingCode && advancingName(p.advancingCode)
+                                        ? ` (awans: ${advancingName(p.advancingCode)})`
+                                        : ""}
+                                </span>
+                                {p.pointsEarned != null && (
+                                    <span className={"other-points" + (p.pointsEarned > 0 ? " hit" : "")}>
+                                        {p.pointsEarned > 0 ? `+${p.pointsEarned} pkt` : "0 pkt"}
+                                    </span>
+                                )}
                             </span>
                         </div>
                     ))}

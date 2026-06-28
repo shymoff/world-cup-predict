@@ -142,7 +142,7 @@ public class MatchController {
 
         List<UserPredictionView> predictions = predictionRepository.findByMatchId(id).stream()
                 .filter(p -> p.getScore1() != null && p.getScore2() != null)
-                .map(UserPredictionView::new)
+                .map(p -> new UserPredictionView(match, p))
                 .sorted(Comparator.comparing(UserPredictionView::getUsername, String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
