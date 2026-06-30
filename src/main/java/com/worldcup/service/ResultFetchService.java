@@ -173,23 +173,48 @@ public class ResultFetchService {
         applyTeam(match, true, fd.homeTeam());
         applyTeam(match, false, fd.awayTeam());
 
-        if (isFinished(fd) && fd.score() != null && fd.score().fullTime() != null) {
-            Integer home = fd.score().fullTime().home();
-            Integer away = fd.score().fullTime().away();
-            if (home != null && away != null && match.getActualScore1() == null) {
-                match.setActualScore1(home);
-                match.setActualScore2(away);
+        if (isFinished(fd) && fd.score() != null) {
+            Integer home = finalScoreHome(fd.score());
+            Integer away = finalScoreAway(fd.score());
+            if (home != null && away != null) {
                 String winner = fd.score().winner();
-                if ("HOME_TEAM".equals(winner)) {
-                    match.setAdvancingCode(match.getTeam1Code());
-                } else if ("AWAY_TEAM".equals(winner)) {
-                    match.setAdvancingCode(match.getTeam2Code());
+                String advancing = "HOME_TEAM".equals(winner) ? match.getTeam1Code()
+                        : "AWAY_TEAM".equals(winner) ? match.getTeam2Code() : null;
+                boolean changed = match.getActualScore1() == null
+                        || !match.getActualScore1().equals(home)
+                        || !match.getActualScore2().equals(away)
+                        || (advancing != null && !advancing.equals(match.getAdvancingCode()));
+                if (changed) {
+                    // Mecz ma juz (bledny) wynik z przyznanymi punktami - cofamy je przed korekta,
+                    // a awardPendingPoints() przeliczy je od nowa wg poprawnego wyniku.
+                    if (match.isPointsAwarded()) {
+                        revertPoints(match);
+                        match.setPointsAwarded(false);
+                    }
+                    match.setActualScore1(home);
+                    match.setActualScore2(away);
+                    if (advancing != null) {
+                        match.setAdvancingCode(advancing);
+                    }
+                    log.info("Wynik pucharowy [{}] {} - {}: {}:{} (awans: {})", round,
+                            match.getTeam1Name(), match.getTeam2Name(), home, away, match.getAdvancingCode());
                 }
-                log.info("Wynik pucharowy [{}] {} - {}: {}:{} (awans: {})", round,
-                        match.getTeam1Name(), match.getTeam2Name(), home, away, match.getAdvancingCode());
             }
         }
         matchRepository.save(match);
+    }
+
+    /** Cofa punkty przyznane wczesniej za dany mecz (na podstawie jego biezacego, byc moze blednego wyniku). */
+    private void revertPoints(Match match) {
+        for (Prediction p : predictionRepository.findByMatchId(match.getId())) {
+            if (p.getScore1() == null || p.getScore2() == null) continue;
+            int pts = pointsFor(match, p);
+            if (pts == 0) continue;
+            userRepository.findByUsernameIgnoreCase(p.getUsername()).ifPresent(user -> {
+                user.setPoints(user.getPoints() - pts);
+                userRepository.save(user);
+            });
+        }
     }
 
     /** Ustawia druzyne (gospodarz/gosc) na meczu pucharowym - dopoki nieznana, pola pozostaja puste. */
@@ -291,6 +316,29 @@ public class ResultFetchService {
         return "FINISHED".equals(fd.status());
     }
 
+    /**
+     * Rzeczywisty wynik meczu (przed ew. karnymi). Dla meczow rozstrzygnietych po karnych/dogrywce
+     * pole "fullTime" z football-data.org zawiera sume regularTime + extraTime + karne, wiec
+     * liczymy wynik z regularTime/extraTime zamiast z niego korzystac.
+     */
+    private Integer finalScoreHome(FdScore score) {
+        if (score.regularTime() != null) {
+            Integer reg = score.regularTime().home();
+            Integer extra = (score.extraTime() != null) ? score.extraTime().home() : 0;
+            return (reg == null) ? null : reg + (extra == null ? 0 : extra);
+        }
+        return (score.fullTime() == null) ? null : score.fullTime().home();
+    }
+
+    private Integer finalScoreAway(FdScore score) {
+        if (score.regularTime() != null) {
+            Integer reg = score.regularTime().away();
+            Integer extra = (score.extraTime() != null) ? score.extraTime().away() : 0;
+            return (reg == null) ? null : reg + (extra == null ? 0 : extra);
+        }
+        return (score.fullTime() == null) ? null : score.fullTime().away();
+    }
+
     /** Klucz nieuporzadkowanej pary kodow druzyn (np. "ar|au"). */
     private String pairKey(String code1, String code2) {
         return (code1.compareTo(code2) <= 0) ? code1 + "|" + code2 : code2 + "|" + code1;
@@ -310,7 +358,8 @@ public class ResultFetchService {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record FdScore(String winner, String duration, FdScoreLine fullTime) {
+    private record FdScore(String winner, String duration, FdScoreLine fullTime,
+                           FdScoreLine regularTime, FdScoreLine extraTime) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
