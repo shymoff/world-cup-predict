@@ -6,6 +6,7 @@ import com.worldcup.dto.LeaderboardEntry;
 import com.worldcup.dto.MatchView;
 import com.worldcup.dto.ResultRequest;
 import com.worldcup.dto.TeamOption;
+import com.worldcup.dto.UserChampionPickView;
 import com.worldcup.dto.UserPredictionView;
 import com.worldcup.model.Match;
 import com.worldcup.model.Prediction;
@@ -197,6 +198,28 @@ public class MatchController {
         userRepository.save(user);
 
         return ResponseEntity.ok(getChampion(auth));
+    }
+
+    /** Typy wszystkich uzytkownikow na mistrza turnieju - widoczne dopiero po zablokowaniu typowania. */
+    @GetMapping("/champion/all")
+    public ResponseEntity<List<UserChampionPickView>> getAllChampionPicks(
+            @RequestHeader(value = "Authorization", required = false) String auth) {
+
+        requireUser(auth);
+
+        if (!isChampionPickLocked()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        String actualChampion = tournamentStateRepository.getOrCreate().getChampionCode();
+
+        List<UserChampionPickView> picks = userRepository.findAll().stream()
+                .filter(u -> u.getChampionPick() != null)
+                .map(u -> new UserChampionPickView(u, actualChampion))
+                .sorted(Comparator.comparing(UserChampionPickView::getUsername, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+
+        return ResponseEntity.ok(picks);
     }
 
     /** Typ na mistrza blokuje sie wraz z poczatkiem turnieju (pierwszy mecz fazy grupowej). */

@@ -329,6 +329,69 @@ function Leaderboard({ me }) {
     );
 }
 
+// ---- Typy innych uzytkownikow na mistrza (widoczne dopiero po zablokowaniu typowania) ----
+function OthersChampionPicks({ teams }) {
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [picks, setPicks] = useState(null);
+    const [error, setError] = useState(false);
+
+    async function toggle() {
+        if (open) {
+            setOpen(false);
+            return;
+        }
+        setOpen(true);
+        if (picks === null) {
+            setLoading(true);
+            const res = await api(`${API}/champion/all`);
+            if (res.ok) {
+                setPicks(await res.json());
+            } else {
+                setError(true);
+            }
+            setLoading(false);
+        }
+    }
+
+    function teamName(code) {
+        const t = teams.find((t) => t.code === code);
+        return t ? t.name : code;
+    }
+
+    return (
+        <div className="others-predictions">
+            <button type="button" className="btn btn-others" onClick={toggle}>
+                {open ? "Ukryj typy innych" : "Pokaż typy innych"}
+            </button>
+            {open && (
+                <div className="others-list">
+                    {loading && <span className="others-hint">Wczytywanie…</span>}
+                    {error && <span className="others-hint">Nie udało się wczytać typów.</span>}
+                    {picks && picks.length === 0 && (
+                        <span className="others-hint">Nikt jeszcze nie wybrał mistrza.</span>
+                    )}
+                    {picks && picks.map((p) => (
+                        <div key={p.username} className="other-prediction">
+                            <span className="other-username">{p.username}</span>
+                            <span className="other-result">
+                                <span className="other-score">
+                                    <Flag code={p.code} name={teamName(p.code)} /> {teamName(p.code)}
+                                </span>
+                                {p.pointsEarned != null && (
+                                    <span className={"other-points" + (p.pointsEarned > 0 ? " hit" : "")}>
+                                        {p.pointsEarned > 0 ? `+${p.pointsEarned} pkt` : "0 pkt"}
+                                    </span>
+                                )}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ---- Typ na mistrza turnieju (15 pkt za trafienie) ----
 function ChampionPicker() {
     const [data, setData] = useState(null);
@@ -423,6 +486,8 @@ function ChampionPicker() {
                     </React.Fragment>
                 )}
             </div>
+
+            {locked && <OthersChampionPicks teams={teams} />}
         </div>
     );
 }
