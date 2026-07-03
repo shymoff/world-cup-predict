@@ -150,6 +150,207 @@ header.app-header .tagline {
     background: linear-gradient(135deg, var(--accent-bright), var(--accent-2));
 }
 
+.user-chip-btn {
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s, transform 0.1s;
+}
+
+.user-chip-btn:hover {
+    border-color: var(--border-strong);
+}
+
+.user-chip-btn:active {
+    transform: translateY(1px);
+}
+
+/* ---------- Panel uzytkownika (modal) ---------- */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 9, 15, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 100;
+    animation: card-in 0.2s ease both;
+}
+
+.modal-panel {
+    position: relative;
+    background: var(--panel-solid);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 26px 26px;
+    width: 100%;
+    max-width: 440px;
+    max-height: 88vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+    animation: card-in 0.3s ease both;
+}
+
+.modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 14px;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.modal-close:hover {
+    color: var(--text);
+    border-color: var(--accent-2);
+}
+
+.profile-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.profile-avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+}
+
+.profile-head h2 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 800;
+}
+
+.profile-tabs {
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
+.profile-won {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+}
+
+.profile-won h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+}
+
+.won-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.won-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.won-item .trophy-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.won-points {
+    margin-left: auto;
+    color: var(--gold);
+    font-weight: 700;
+    font-size: 12.5px;
+}
+
+.profile-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.stat-box {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.profile-password-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-password-form label {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin: 14px 0 6px;
+}
+
+.profile-password-form label:first-child {
+    margin-top: 0;
+}
+
+.profile-password-form input {
+    background: rgba(9, 13, 20, 0.65);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.profile-password-form input:focus {
+    outline: none;
+    border-color: var(--accent-2);
+    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+}
+
+.profile-password-form .saved-badge {
+    margin-top: 14px;
+}
+
 /* ---------- Ekran logowania ---------- */
 
 .login-wrap {

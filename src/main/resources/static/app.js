@@ -704,12 +704,188 @@ function KnockoutStage({ matches, onSaved }) {
     );
 }
 
+// ---- Panel uzytkownika: statystyki, wygrane turnieje, zmiana hasla ----
+function UserPanel({ username, onClose }) {
+    const [profile, setProfile] = useState(null);
+    const [tab, setTab] = useState("stats"); // "stats" | "password"
+
+    useEffect(() => {
+        api(`${API}/user/profile`).then((res) => {
+            if (!res.ok) return;
+            res.json().then(setProfile);
+        });
+    }, []);
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+                <button type="button" className="modal-close" onClick={onClose} aria-label="Zamknij">✕</button>
+
+                <div className="profile-head">
+                    <span className="user-avatar profile-avatar">{username.charAt(0).toUpperCase()}</span>
+                    <h2>{username}</h2>
+                </div>
+
+                <div className="tab-bar profile-tabs">
+                    <button className={"chip wide" + (tab === "stats" ? " active" : "")}
+                            onClick={() => setTab("stats")}>📊 Statystyki</button>
+                    <button className={"chip wide" + (tab === "password" ? " active" : "")}
+                            onClick={() => setTab("password")}>🔒 Hasło</button>
+                </div>
+
+                {tab === "stats" ? (
+                    <ProfileStats profile={profile} />
+                ) : (
+                    <ChangePasswordForm />
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ---- Zawartosc zakladki "Statystyki" panelu uzytkownika ----
+function ProfileStats({ profile }) {
+    if (profile === null) {
+        return <div className="loading">Ładowanie profilu…</div>;
+    }
+
+    const hitRate = profile.settledPredictions > 0
+        ? Math.round((profile.hitPredictions / profile.settledPredictions) * 100)
+        : 0;
+
+    return (
+        <React.Fragment>
+            <div className="profile-won">
+                <h3>🏆 Wygrane turnieje</h3>
+                {profile.wonTournaments.length === 0 ? (
+                    <p className="others-hint">
+                        {profile.rank === 1
+                            ? "Turniej trwa — obecnie na 1. miejscu!"
+                            : "Jeszcze żadnych — obecnie " + profile.rank + ". miejsce w rankingu."}
+                    </p>
+                ) : (
+                    <ul className="won-list">
+                        {profile.wonTournaments.map((t) => (
+                            <li key={t.name} className="won-item">
+                                <img src="mundial_trophy.png" alt="Puchar" className="trophy-icon" />
+                                <span>{t.name}</span>
+                                <span className="won-points">{t.points} pkt</span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+
+            <div className="profile-stats-grid">
+                <div className="stat-box">
+                    <span className="stat-value">{profile.points}</span>
+                    <span className="stat-label">Punkty</span>
+                </div>
+                <div className="stat-box">
+                    <span className="stat-value">#{profile.rank}</span>
+                    <span className="stat-label">Pozycja z {profile.totalUsers}</span>
+                </div>
+                <div className="stat-box">
+                    <span className="stat-value">{profile.predictionsMade}</span>
+                    <span className="stat-label">Typów oddanych</span>
+                </div>
+                <div className="stat-box">
+                    <span className="stat-value">{profile.exactHits}</span>
+                    <span className="stat-label">Dokładnych wyników</span>
+                </div>
+                <div className="stat-box">
+                    <span className="stat-value">{hitRate}%</span>
+                    <span className="stat-label">Skuteczność</span>
+                </div>
+                <div className="stat-box">
+                    <span className="stat-value">
+                        {profile.championPickName
+                            ? (profile.championPickCorrect === null
+                                ? profile.championPickName
+                                : (profile.championPickCorrect ? "✅" : "❌") + " " + profile.championPickName)
+                            : "—"}
+                    </span>
+                    <span className="stat-label">Typ na mistrza</span>
+                </div>
+            </div>
+        </React.Fragment>
+    );
+}
+
+// ---- Zawartosc zakladki "Hasło" panelu uzytkownika ----
+function ChangePasswordForm() {
+    const [oldPassword, setOldPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [newPassword2, setNewPassword2] = useState("");
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState(false);
+    const [busy, setBusy] = useState(false);
+
+    async function submit(e) {
+        e.preventDefault();
+        setError("");
+        setSuccess(false);
+
+        if (newPassword !== newPassword2) {
+            setError("Nowe hasła nie są takie same");
+            return;
+        }
+
+        setBusy(true);
+        const res = await api(`${API}/user/password`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ oldPassword, newPassword }),
+        });
+        setBusy(false);
+
+        if (!res.ok) {
+            let msg = "Nie udało się zmienić hasła";
+            try {
+                const body = await res.json();
+                if (body.error) msg = body.error;
+            } catch (_) { /* ignore */ }
+            setError(msg);
+            return;
+        }
+
+        setSuccess(true);
+        setOldPassword("");
+        setNewPassword("");
+        setNewPassword2("");
+    }
+
+    return (
+        <form className="profile-password-form" onSubmit={submit}>
+            <label>Aktualne hasło</label>
+            <input type="password" value={oldPassword}
+                   onChange={(e) => setOldPassword(e.target.value)} />
+
+            <label>Nowe hasło</label>
+            <input type="password" value={newPassword}
+                   onChange={(e) => setNewPassword(e.target.value)} />
+
+            <label>Powtórz nowe hasło</label>
+            <input type="password" value={newPassword2}
+                   onChange={(e) => setNewPassword2(e.target.value)} />
+
+            {error && <div className="login-error">{error}</div>}
+            {success && <div className="saved-badge">✓ Hasło zostało zmienione</div>}
+
+            <button className="btn btn-save login-btn" type="submit" disabled={busy}>
+                {busy ? "Zapisywanie…" : "Zmień hasło"}
+            </button>
+        </form>
+    );
+}
+
 // ---- Aplikacja (dla zalogowanego uzytkownika) ----
 function App({ user, onLogout }) {
     const [matches, setMatches] = useState([]);
     const [groupFilter, setGroupFilter] = useState("ALL");
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState("matches"); // "matches" | "knockout" | "leaderboard"
+    const [profileOpen, setProfileOpen] = useState(false);
 
     async function loadAll() {
         const res = await api(`${API}/matches`);
@@ -764,12 +940,14 @@ function App({ user, onLogout }) {
         <div>
             <header className="app-header">
                 <div className="userbar">
-                    <span className="user-chip">
+                    <button type="button" className="user-chip user-chip-btn" onClick={() => setProfileOpen(true)}>
                         <span className="user-avatar">{user.charAt(0).toUpperCase()}</span>
                         {user}
-                    </span>
+                    </button>
                     <button className="btn btn-clear" onClick={onLogout}>Wyloguj</button>
                 </div>
+
+                {profileOpen && <UserPanel username={user} onClose={() => setProfileOpen(false)} />}
                 <h1>⚽ Mistrzostwa Świata <span className="grad">2026</span></h1>
                 <p className="tagline">Typuj wyniki • Faza grupowa • 11–27 czerwca 2026</p>
                 <div className="progress">

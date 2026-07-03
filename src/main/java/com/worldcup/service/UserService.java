@@ -55,4 +55,20 @@ public class UserService {
                 .map(User::getUsername)
                 .orElse(null);
     }
+
+    /** Zmienia haslo zalogowanego uzytkownika po zweryfikowaniu aktualnego hasla. */
+    public void changePassword(String username, String oldPassword, String newPassword) {
+        User user = repository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new ValidationException("Użytkownik nie istnieje"));
+
+        if (oldPassword == null || !PasswordHasher.matches(oldPassword, user.getPasswordHash())) {
+            throw new ValidationException("Aktualne hasło jest nieprawidłowe");
+        }
+        if (newPassword == null || newPassword.length() < 4) {
+            throw new ValidationException("Nowe hasło musi mieć co najmniej 4 znaki");
+        }
+
+        user.setPasswordHash(PasswordHasher.hash(newPassword));
+        repository.save(user);
+    }
 }
