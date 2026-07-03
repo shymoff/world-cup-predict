@@ -583,6 +583,14 @@ header.app-header .tagline {
     background: rgba(16, 185, 129, 0.08);
 }
 
+.leaderboard-table tr.last td {
+    background: rgba(248, 113, 113, 0.1);
+}
+
+.leaderboard-table tr.last.me td {
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(248, 113, 113, 0.1));
+}
+
 .leaderboard-table .lb-rank {
     width: 56px;
     color: var(--muted);
@@ -614,6 +622,20 @@ header.app-header .tagline {
     color: var(--accent-bright);
     background: rgba(16, 185, 129, 0.14);
     border: 1px solid rgba(16, 185, 129, 0.35);
+    vertical-align: 1px;
+}
+
+.sponsor-badge {
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--danger);
+    background: rgba(248, 113, 113, 0.14);
+    border: 1px solid rgba(248, 113, 113, 0.35);
     vertical-align: 1px;
 }
 

@@ -297,20 +297,25 @@ function Leaderboard({ me }) {
                     </tr>
                 </thead>
                 <tbody>
-                    {entries.map((e, i) => (
-                        <tr key={e.username} className={e.username === me ? "me" : ""}>
-                            <td className="lb-rank">
-                                {i === 0 ? (
-                                    <img src="mundial_trophy.png" alt="1. miejsce" className="trophy-icon" />
-                                ) : i < 3 ? MEDALE[i] : i + 1}
-                            </td>
-                            <td className="lb-name">
-                                {e.username}
-                                {e.username === me && <span className="you-badge">Ty</span>}
-                            </td>
-                            <td className="lb-points">{e.points}</td>
-                        </tr>
-                    ))}
+                    {entries.map((e, i) => {
+                        const isLast = i === entries.length - 1 && entries.length > 1;
+                        return (
+                            <tr key={e.username}
+                                className={(e.username === me ? "me " : "") + (isLast ? "last" : "")}>
+                                <td className="lb-rank">
+                                    {i === 0 ? (
+                                        <img src="mundial_trophy.png" alt="1. miejsce" className="trophy-icon" />
+                                    ) : i < 3 ? MEDALE[i] : i + 1}
+                                </td>
+                                <td className="lb-name">
+                                    {e.username}
+                                    {e.username === me && <span className="you-badge">Ty</span>}
+                                    {isLast && <span className="sponsor-badge">Sponsor nagród</span>}
+                                </td>
+                                <td className="lb-points">{e.points}</td>
+                            </tr>
+                        );
+                    })}
                 </tbody>
             </table>
             </div>
