@@ -17,6 +17,7 @@ import com.worldcup.repository.PredictionRepository;
 import com.worldcup.repository.TournamentStateRepository;
 import com.worldcup.repository.UserRepository;
 import com.worldcup.service.JwtService;
+import com.worldcup.service.RankingService;
 import com.worldcup.service.ResultFetchService;
 import com.worldcup.service.Teams;
 import org.springframework.http.HttpStatus;
@@ -47,19 +48,22 @@ public class MatchController {
     private final TournamentStateRepository tournamentStateRepository;
     private final JwtService jwtService;
     private final ResultFetchService resultFetchService;
+    private final RankingService rankingService;
 
     public MatchController(MatchRepository matchRepository,
                           PredictionRepository predictionRepository,
                           UserRepository userRepository,
                           TournamentStateRepository tournamentStateRepository,
                           JwtService jwtService,
-                          ResultFetchService resultFetchService) {
+                          ResultFetchService resultFetchService,
+                          RankingService rankingService) {
         this.matchRepository = matchRepository;
         this.predictionRepository = predictionRepository;
         this.userRepository = userRepository;
         this.tournamentStateRepository = tournamentStateRepository;
         this.jwtService = jwtService;
         this.resultFetchService = resultFetchService;
+        this.rankingService = rankingService;
     }
 
     /** Mecze wraz z typami ZALOGOWANEGO uzytkownika (nigdy cudzymi). */
@@ -150,11 +154,15 @@ public class MatchController {
         return ResponseEntity.ok(predictions);
     }
 
-    /** Ranking wszystkich zarejestrowanych uzytkownikow (na poczatek kazdy ma 0 punktow). */
+    /**
+     * Ranking wszystkich zarejestrowanych uzytkownikow (na poczatek kazdy ma 0 punktow).
+     * Przy rownej liczbie punktow rozstrzyga skutecznosc, a dalej dokladne wyniki.
+     */
     @GetMapping("/leaderboard")
     public List<LeaderboardEntry> getLeaderboard(@RequestHeader(value = "Authorization", required = false) String auth) {
         requireUser(auth);
-        return userRepository.findAllByOrderByPointsDescUsernameAsc().stream()
+        Map<String, RankingService.Stats> stats = rankingService.statsByUser();
+        return rankingService.rankedUsers(stats).stream()
                 .map(LeaderboardEntry::new)
                 .toList();
     }

@@ -301,7 +301,9 @@ function Leaderboard({ me }) {
                         const isLast = i === entries.length - 1 && entries.length > 1;
                         return (
                             <tr key={e.username}
-                                className={(e.username === me ? "me " : "") + (isLast ? "last" : "")}>
+                                className={(e.username === me ? "me " : "") + (isLast ? "last " : "") + "lb-clickable"}
+                                title={`Zobacz gablotę: ${e.username}`}
+                                onClick={() => { window.location.href = `/account?user=${encodeURIComponent(e.username)}`; }}>
                                 <td className="lb-rank">
                                     {i === 0 ? (
                                         <img src="mundial_trophy.png" alt="1. miejsce" className="trophy-icon" />
@@ -709,188 +711,12 @@ function KnockoutStage({ matches, onSaved }) {
     );
 }
 
-// ---- Panel uzytkownika: statystyki, wygrane turnieje, zmiana hasla ----
-function UserPanel({ username, onClose }) {
-    const [profile, setProfile] = useState(null);
-    const [tab, setTab] = useState("stats"); // "stats" | "password"
-
-    useEffect(() => {
-        api(`${API}/user/profile`).then((res) => {
-            if (!res.ok) return;
-            res.json().then(setProfile);
-        });
-    }, []);
-
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="modal-close" onClick={onClose} aria-label="Zamknij">✕</button>
-
-                <div className="profile-head">
-                    <span className="user-avatar profile-avatar">{username.charAt(0).toUpperCase()}</span>
-                    <h2>{username}</h2>
-                </div>
-
-                <div className="tab-bar profile-tabs">
-                    <button className={"chip wide" + (tab === "stats" ? " active" : "")}
-                            onClick={() => setTab("stats")}>📊 Statystyki</button>
-                    <button className={"chip wide" + (tab === "password" ? " active" : "")}
-                            onClick={() => setTab("password")}>🔒 Hasło</button>
-                </div>
-
-                {tab === "stats" ? (
-                    <ProfileStats profile={profile} />
-                ) : (
-                    <ChangePasswordForm />
-                )}
-            </div>
-        </div>
-    );
-}
-
-// ---- Zawartosc zakladki "Statystyki" panelu uzytkownika ----
-function ProfileStats({ profile }) {
-    if (profile === null) {
-        return <div className="loading">Ładowanie profilu…</div>;
-    }
-
-    const hitRate = profile.settledPredictions > 0
-        ? Math.round((profile.hitPredictions / profile.settledPredictions) * 100)
-        : 0;
-
-    return (
-        <React.Fragment>
-            <div className="profile-won">
-                <h3>🏆 Wygrane turnieje</h3>
-                {profile.wonTournaments.length === 0 ? (
-                    <p className="others-hint">
-                        {profile.rank === 1
-                            ? "Turniej trwa — obecnie na 1. miejscu!"
-                            : "Jeszcze żadnych — obecnie " + profile.rank + ". miejsce w rankingu."}
-                    </p>
-                ) : (
-                    <ul className="won-list">
-                        {profile.wonTournaments.map((t) => (
-                            <li key={t.name} className="won-item">
-                                <img src="mundial_trophy.png" alt="Puchar" className="trophy-icon" />
-                                <span>{t.name}</span>
-                                <span className="won-points">{t.points} pkt</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
-
-            <div className="profile-stats-grid">
-                <div className="stat-box">
-                    <span className="stat-value">{profile.points}</span>
-                    <span className="stat-label">Punkty</span>
-                </div>
-                <div className="stat-box">
-                    <span className="stat-value">#{profile.rank}</span>
-                    <span className="stat-label">Pozycja z {profile.totalUsers}</span>
-                </div>
-                <div className="stat-box">
-                    <span className="stat-value">{profile.predictionsMade}</span>
-                    <span className="stat-label">Typów oddanych</span>
-                </div>
-                <div className="stat-box">
-                    <span className="stat-value">{profile.exactHits}</span>
-                    <span className="stat-label">Dokładnych wyników</span>
-                </div>
-                <div className="stat-box">
-                    <span className="stat-value">{hitRate}%</span>
-                    <span className="stat-label">Skuteczność</span>
-                </div>
-                <div className="stat-box">
-                    <span className="stat-value">
-                        {profile.championPickName
-                            ? (profile.championPickCorrect === null
-                                ? profile.championPickName
-                                : (profile.championPickCorrect ? "✅" : "❌") + " " + profile.championPickName)
-                            : "—"}
-                    </span>
-                    <span className="stat-label">Typ na mistrza</span>
-                </div>
-            </div>
-        </React.Fragment>
-    );
-}
-
-// ---- Zawartosc zakladki "Hasło" panelu uzytkownika ----
-function ChangePasswordForm() {
-    const [oldPassword, setOldPassword] = useState("");
-    const [newPassword, setNewPassword] = useState("");
-    const [newPassword2, setNewPassword2] = useState("");
-    const [error, setError] = useState("");
-    const [success, setSuccess] = useState(false);
-    const [busy, setBusy] = useState(false);
-
-    async function submit(e) {
-        e.preventDefault();
-        setError("");
-        setSuccess(false);
-
-        if (newPassword !== newPassword2) {
-            setError("Nowe hasła nie są takie same");
-            return;
-        }
-
-        setBusy(true);
-        const res = await api(`${API}/user/password`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ oldPassword, newPassword }),
-        });
-        setBusy(false);
-
-        if (!res.ok) {
-            let msg = "Nie udało się zmienić hasła";
-            try {
-                const body = await res.json();
-                if (body.error) msg = body.error;
-            } catch (_) { /* ignore */ }
-            setError(msg);
-            return;
-        }
-
-        setSuccess(true);
-        setOldPassword("");
-        setNewPassword("");
-        setNewPassword2("");
-    }
-
-    return (
-        <form className="profile-password-form" onSubmit={submit}>
-            <label>Aktualne hasło</label>
-            <input type="password" value={oldPassword}
-                   onChange={(e) => setOldPassword(e.target.value)} />
-
-            <label>Nowe hasło</label>
-            <input type="password" value={newPassword}
-                   onChange={(e) => setNewPassword(e.target.value)} />
-
-            <label>Powtórz nowe hasło</label>
-            <input type="password" value={newPassword2}
-                   onChange={(e) => setNewPassword2(e.target.value)} />
-
-            {error && <div className="login-error">{error}</div>}
-            {success && <div className="saved-badge">✓ Hasło zostało zmienione</div>}
-
-            <button className="btn btn-save login-btn" type="submit" disabled={busy}>
-                {busy ? "Zapisywanie…" : "Zmień hasło"}
-            </button>
-        </form>
-    );
-}
-
 // ---- Aplikacja (dla zalogowanego uzytkownika) ----
 function App({ user, onLogout }) {
     const [matches, setMatches] = useState([]);
     const [groupFilter, setGroupFilter] = useState("ALL");
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState("matches"); // "matches" | "knockout" | "leaderboard"
-    const [profileOpen, setProfileOpen] = useState(false);
 
     async function loadAll() {
         const res = await api(`${API}/matches`);
@@ -944,15 +770,29 @@ function App({ user, onLogout }) {
     return (
         <div>
             <header className="app-header">
-                <div className="userbar">
-                    <button type="button" className="user-chip user-chip-btn" onClick={() => setProfileOpen(true)}>
-                        <span className="user-avatar">{user.charAt(0).toUpperCase()}</span>
-                        {user}
-                    </button>
-                    <button className="btn btn-clear" onClick={onLogout}>Wyloguj</button>
+                <div className="topbar">
+                    <a className="brand" href="/" title="Wróć na stronę główną ParlayHub">
+                        <svg className="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
+                            <rect x="4" y="4" width="32" height="32" rx="9" fill="url(#lg)"/>
+                            <path d="M14 28V12h7a5 5 0 0 1 0 10h-4" fill="none" stroke="#0a0a0b" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round"/>
+                            <defs>
+                                <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stopColor="#fb923c"/>
+                                    <stop offset="100%" stopColor="#ea580c"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        <span className="wordmark">Parlay<span className="wordmark-accent">Hub</span></span>
+                    </a>
+                    <div className="userbar">
+                        <a className="user-chip user-chip-btn" href="/account" title="Twoje konto na ParlayHub">
+                            <span className="user-avatar">{user.charAt(0).toUpperCase()}</span>
+                            {user}
+                        </a>
+                        <button className="btn btn-clear" onClick={onLogout}>Wyloguj</button>
+                    </div>
                 </div>
 
-                {profileOpen && <UserPanel username={user} onClose={() => setProfileOpen(false)} />}
                 <h1>⚽ Mistrzostwa Świata <span className="grad">2026</span></h1>
                 <p className="tagline">Typuj wyniki • Faza grupowa • 11–27 czerwca 2026</p>
                 <div className="progress">
@@ -999,105 +839,11 @@ function App({ user, onLogout }) {
             </div>
 
             <footer>
+                <a href="/">← ParlayHub</a> •
                 Terminarz wg oficjalnego losowania (5.12.2025) •
                 Flagi: <a href="https://flagcdn.com" target="_blank">flagcdn.com</a> •
                 Spring Boot + React
             </footer>
-        </div>
-    );
-}
-
-// ---- Ekran logowania / rejestracji ----
-function Login({ onLogin }) {
-    const [mode, setMode] = useState("login"); // "login" | "register"
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
-    const [password2, setPassword2] = useState("");
-    const [error, setError] = useState("");
-    const [busy, setBusy] = useState(false);
-
-    const isRegister = mode === "register";
-
-    function switchMode() {
-        setMode(isRegister ? "login" : "register");
-        setError("");
-        setPassword2("");
-    }
-
-    async function submit(e) {
-        e.preventDefault();
-        setError("");
-
-        if (isRegister && password !== password2) {
-            setError("Hasła nie są takie same");
-            return;
-        }
-
-        setBusy(true);
-        const res = await fetch(`${API}/auth/${isRegister ? "register" : "login"}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }),
-        });
-        setBusy(false);
-
-        if (!res.ok) {
-            let msg = isRegister ? "Nie udało się zarejestrować" : "Nieprawidłowy login lub hasło";
-            try {
-                const body = await res.json();
-                if (body.error) msg = body.error;
-            } catch (_) { /* ignore */ }
-            setError(msg);
-            return;
-        }
-
-        const data = await res.json();
-        localStorage.setItem("wc_token", data.token);
-        localStorage.setItem("wc_user", data.username);
-        onLogin(data.username);
-    }
-
-    return (
-        <div className="login-wrap">
-            <form className="login-card" onSubmit={submit}>
-                <div className="login-logo">⚽</div>
-                <h1>MŚ 2026 — Predyktor</h1>
-                <p className="login-sub">
-                    {isRegister ? "Załóż konto, aby dołączyć" : "Zaloguj się, aby obstawiać mecze"}
-                </p>
-
-                <label>Nazwa użytkownika</label>
-                <input type="text" value={username} autoFocus
-                       placeholder="np. Szymon"
-                       onChange={(e) => setUsername(e.target.value)} />
-
-                <label>Hasło</label>
-                <input type="password" value={password}
-                       onChange={(e) => setPassword(e.target.value)} />
-
-                {isRegister && (
-                    <React.Fragment>
-                        <label>Powtórz hasło</label>
-                        <input type="password" value={password2}
-                               onChange={(e) => setPassword2(e.target.value)} />
-                    </React.Fragment>
-                )}
-
-                {error && <div className="login-error">{error}</div>}
-
-                <button className="btn btn-save login-btn" type="submit" disabled={busy}>
-                    {busy
-                        ? (isRegister ? "Rejestrowanie…" : "Logowanie…")
-                        : (isRegister ? "Zarejestruj" : "Zaloguj")}
-                </button>
-
-                <div className="login-switch">
-                    {isRegister ? "Masz już konto?" : "Nie masz konta?"}{" "}
-                    <button type="button" className="link-btn" onClick={switchMode}>
-                        {isRegister ? "Zaloguj się" : "Zarejestruj się"}
-                    </button>
-                </div>
-            </form>
         </div>
     );
 }
@@ -1170,10 +916,15 @@ function Root() {
         setUser(null);
     }
 
+    // Logowanie odbywa sie na stronie glownej ParlayHub - tu tylko przekierowanie
+    useEffect(() => {
+        if (serverState === "ready" && !user) window.location.replace("/");
+    }, [serverState, user]);
+
     if (serverState === "waking") return <WakeScreen />;
     if (serverState === "checking") return null; // krotka chwila - unikamy mrugniecia ekranu
 
-    if (!user) return <Login onLogin={setUser} />;
+    if (!user) return null; // trwa przekierowanie na strone glowna
     return <App user={user} onLogout={logout} />;
 }
 

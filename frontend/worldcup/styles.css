@@ -116,6 +116,48 @@ header.app-header .tagline {
 
 /* ---------- Pasek uzytkownika ---------- */
 
+/* Gorny pasek: logo ParlayHub (powrot na glowna) po lewej, pasek uzytkownika po prawej */
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--text);
+}
+
+.logo-mark {
+    width: 34px;
+    height: 34px;
+    filter: drop-shadow(0 4px 14px rgba(249, 115, 22, 0.35));
+}
+
+.wordmark {
+    font-family: "Sora", "Inter", sans-serif;
+    font-weight: 800;
+    font-size: 19px;
+    letter-spacing: 0.2px;
+}
+
+.wordmark-accent {
+    background: linear-gradient(120deg, #fb923c, #ea580c);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+@media (max-width: 480px) {
+    .wordmark {
+        display: none;
+    }
+}
+
 .userbar {
     display: flex;
     align-items: center;
@@ -127,6 +169,7 @@ header.app-header .tagline {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    text-decoration: none;
     background: var(--panel);
     border: 1px solid var(--border);
     color: var(--text);
@@ -573,6 +616,14 @@ header.app-header .tagline {
 
 .leaderboard-table tbody tr:hover {
     background: rgba(148, 163, 184, 0.05);
+}
+
+.leaderboard-table tr.lb-clickable {
+    cursor: pointer;
+}
+
+.leaderboard-table tr.lb-clickable:hover .lb-name {
+    color: var(--accent-bright);
 }
 
 .leaderboard-table tbody tr:not(:last-child) td {

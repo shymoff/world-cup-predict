@@ -3,21 +3,18 @@ package com.worldcup.controller;
 import com.worldcup.dto.ChangePasswordRequest;
 import com.worldcup.dto.UserProfileView;
 import com.worldcup.dto.WonTournamentView;
-import com.worldcup.model.Match;
-import com.worldcup.model.Prediction;
 import com.worldcup.model.TournamentState;
 import com.worldcup.model.User;
-import com.worldcup.repository.MatchRepository;
-import com.worldcup.repository.PredictionRepository;
 import com.worldcup.repository.TournamentStateRepository;
 import com.worldcup.repository.UserRepository;
 import com.worldcup.service.JwtService;
-import com.worldcup.service.ScoringService;
+import com.worldcup.service.RankingService;
 import com.worldcup.service.Teams;
 import com.worldcup.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -25,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,24 +32,21 @@ public class UserController {
     private static final String TOURNAMENT_NAME = "Mistrzostwa Świata 2026";
 
     private final UserRepository userRepository;
-    private final MatchRepository matchRepository;
-    private final PredictionRepository predictionRepository;
     private final TournamentStateRepository tournamentStateRepository;
     private final UserService userService;
     private final JwtService jwtService;
+    private final RankingService rankingService;
 
     public UserController(UserRepository userRepository,
-                           MatchRepository matchRepository,
-                           PredictionRepository predictionRepository,
                            TournamentStateRepository tournamentStateRepository,
                            UserService userService,
-                           JwtService jwtService) {
+                           JwtService jwtService,
+                           RankingService rankingService) {
         this.userRepository = userRepository;
-        this.matchRepository = matchRepository;
-        this.predictionRepository = predictionRepository;
         this.tournamentStateRepository = tournamentStateRepository;
         this.userService = userService;
         this.jwtService = jwtService;
+        this.rankingService = rankingService;
     }
 
     /** Profil zalogowanego uzytkownika: pozycja w rankingu, statystyki typow, wygrane turnieje. */
@@ -63,7 +56,8 @@ public class UserController {
         User user = userRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token niewazny"));
 
-        List<User> ranking = userRepository.findAllByOrderByPointsDescUsernameAsc();
+        Map<String, RankingService.Stats> statsMap = rankingService.statsByUser();
+        List<User> ranking = rankingService.rankedUsers(statsMap);
         int rank = 1;
         for (User u : ranking) {
             if (u.getUsername().equalsIgnoreCase(username)) {
@@ -72,42 +66,7 @@ public class UserController {
             rank++;
         }
 
-        Map<Long, Match> matchesById = new HashMap<>();
-        for (Match m : matchRepository.findAll()) {
-            matchesById.put(m.getId(), m);
-        }
-
-        int predictionsMade = 0;
-        int settledPredictions = 0;
-        int exactHits = 0;
-        int hitPredictions = 0;
-        for (Prediction p : predictionRepository.findByUsername(username)) {
-            if (p.getScore1() == null || p.getScore2() == null) {
-                continue;
-            }
-            predictionsMade++;
-            Match match = matchesById.get(p.getMatchId());
-            if (match == null || match.getActualScore1() == null || match.getActualScore2() == null) {
-                continue;
-            }
-            settledPredictions++;
-            boolean exact = p.getScore1().equals(match.getActualScore1()) && p.getScore2().equals(match.getActualScore2());
-            int earned;
-            if (match.isKnockout()) {
-                String predAdvancing = predictedAdvancing(match, p);
-                earned = ScoringService.knockoutPoints(p.getScore1(), p.getScore2(), predAdvancing,
-                        match.getActualScore1(), match.getActualScore2(), match.getAdvancingCode());
-            } else {
-                earned = ScoringService.points(p.getScore1(), p.getScore2(),
-                        match.getActualScore1(), match.getActualScore2());
-            }
-            if (exact) {
-                exactHits++;
-            }
-            if (earned > 0) {
-                hitPredictions++;
-            }
-        }
+        RankingService.Stats stats = RankingService.statsFor(statsMap, user);
 
         TournamentState state = tournamentStateRepository.getOrCreate();
         String championPickCode = user.getChampionPick();
@@ -116,17 +75,47 @@ public class UserController {
                 ? null
                 : championPickCode.equals(state.getChampionCode());
 
-        List<WonTournamentView> wonTournaments = List.of();
-        if (state.getChampionCode() != null && !ranking.isEmpty()) {
-            int topPoints = ranking.get(0).getPoints();
-            if (user.getPoints() == topPoints) {
-                wonTournaments = List.of(new WonTournamentView(TOURNAMENT_NAME, user.getPoints()));
-            }
-        }
+        List<WonTournamentView> wonTournaments = podiumOf(user, ranking, statsMap, state);
 
         return new UserProfileView(user.getUsername(), user.getPoints(), rank, ranking.size(),
-                predictionsMade, settledPredictions, exactHits, hitPredictions,
+                stats.predictionsMade(), stats.settled(), stats.exact(), stats.hits(),
                 championPickCode, championPickName, championPickCorrect, wonTournaments);
+    }
+
+    /** Podium (gablota) dowolnego uzytkownika - do podgladu z rankingu. */
+    @GetMapping("/{username}/podium")
+    public List<WonTournamentView> getPodium(
+            @RequestHeader(value = "Authorization", required = false) String auth,
+            @PathVariable String username) {
+        requireUser(auth);
+        User user = userRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie ma takiego użytkownika"));
+        Map<String, RankingService.Stats> statsMap = rankingService.statsByUser();
+        List<User> ranking = rankingService.rankedUsers(statsMap);
+        TournamentState state = tournamentStateRepository.getOrCreate();
+        return podiumOf(user, ranking, statsMap, state);
+    }
+
+    /**
+     * Miejsce na podium (1-3) po zakonczeniu turnieju, wg punktow, a przy remisie
+     * wg skutecznosci, a dalej dokladnych wynikow. Uzytkownicy rowni we wszystkich
+     * kryteriach dziela miejsce (ranking gesty po unikalnych kluczach pozycji).
+     */
+    private List<WonTournamentView> podiumOf(User user, List<User> ranking,
+                                             Map<String, RankingService.Stats> statsMap, TournamentState state) {
+        if (state.getChampionCode() == null || ranking.isEmpty()) {
+            return List.of();
+        }
+        RankingService.RankKey userKey = rankingService.rankKey(user, statsMap);
+        int place = (int) ranking.stream()
+                .map(u -> rankingService.rankKey(u, statsMap))
+                .distinct()
+                .takeWhile(k -> k.compareTo(userKey) > 0)
+                .count() + 1;
+        if (place > 3) {
+            return List.of();
+        }
+        return List.of(new WonTournamentView(TOURNAMENT_NAME, user.getPoints(), place));
     }
 
     /** Zmiana wlasnego hasla - wymaga podania aktualnego hasla. */
@@ -142,16 +131,6 @@ public class UserController {
         } catch (UserService.ValidationException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
-    }
-
-    /** Druzyna typowana do awansu: przy wygranej wynika z wyniku, przy remisie z osobnego typu (karne). */
-    private String predictedAdvancing(Match match, Prediction p) {
-        if (!match.isKnockout()) {
-            return null;
-        }
-        if (p.getScore1() > p.getScore2()) return match.getTeam1Code();
-        if (p.getScore1() < p.getScore2()) return match.getTeam2Code();
-        return p.getAdvancingCode();
     }
 
     private String teamNameByCode(String code) {

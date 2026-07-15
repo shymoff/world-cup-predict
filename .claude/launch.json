@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "world-cup",
-      "runtimeExecutable": "mvn",
+      "runtimeExecutable": "mvn.cmd",
       "runtimeArgs": ["-q", "-DskipTests", "spring-boot:run"],
       "autoPort": true
     }
