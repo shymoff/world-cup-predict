@@ -180,6 +180,9 @@ public class ResultFetchService {
                 String winner = fd.score().winner();
                 String advancing = "HOME_TEAM".equals(winner) ? match.getTeam1Code()
                         : "AWAY_TEAM".equals(winner) ? match.getTeam2Code() : null;
+                if (advancing == null) {
+                    advancing = advancingFromPenalties(fd.score(), match);
+                }
                 boolean changed = match.getActualScore1() == null
                         || !match.getActualScore1().equals(home)
                         || !match.getActualScore2().equals(away)
@@ -202,6 +205,22 @@ public class ResultFetchService {
             }
         }
         matchRepository.save(match);
+    }
+
+    /**
+     * Awaryjne ustalenie awansu z karnych, gdy football-data.org nie uzupelni pola score.winner
+     * (zdarza sie to mimo statusu FINISHED). Dziala tylko, gdy karne maja jednoznaczny wynik.
+     */
+    private String advancingFromPenalties(FdScore score, Match match) {
+        if (!"PENALTY_SHOOTOUT".equals(score.duration()) || score.penalties() == null) {
+            return null;
+        }
+        Integer home = score.penalties().home();
+        Integer away = score.penalties().away();
+        if (home == null || away == null || home.equals(away)) {
+            return null; // brak jednoznacznego wyniku karnych - nie ryzykujemy blednego dopasowania
+        }
+        return (home > away) ? match.getTeam1Code() : match.getTeam2Code();
     }
 
     /** Cofa punkty przyznane wczesniej za dany mecz (na podstawie jego biezacego, byc moze blednego wyniku). */
@@ -359,7 +378,7 @@ public class ResultFetchService {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record FdScore(String winner, String duration, FdScoreLine fullTime,
-                           FdScoreLine regularTime, FdScoreLine extraTime) {
+                           FdScoreLine regularTime, FdScoreLine extraTime, FdScoreLine penalties) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
