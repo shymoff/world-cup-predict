@@ -2,6 +2,21 @@ const { useState, useEffect, useMemo } = React;
 
 const API = "/api";
 
+// Rozgrywki brane z adresu (?t=<slug>). Bez parametru - mundial, zeby stare linki dzialaly.
+const TOURNAMENT = new URLSearchParams(window.location.search).get("t") || "worldcup";
+
+// Liga Narodow ma wygladac jak strona glowna ParlayHub (patrz body.theme-hub w styles.css) -
+// MS 2026 zostaje przy dotychczasowym stylu. Rozpoznajemy po slugu (np. "nations2026"), a nie
+// dopiero po nazwie z API, zeby motyw byl poprawny juz na ekranie logowania, nie tylko po nim.
+if (/^nations/i.test(TOURNAMENT)) {
+    document.body.classList.add("theme-hub");
+}
+
+// Doklada ?tournament=<slug> do sciezek zaleznych od rozgrywek.
+function scoped(path) {
+    return `${path}${path.includes("?") ? "&" : "?"}tournament=${encodeURIComponent(TOURNAMENT)}`;
+}
+
 // Fetch z dolaczonym tokenem JWT. Na 401 czysci sesje i wraca do logowania.
 function api(path, options = {}) {
     const token = localStorage.getItem("wc_token");
@@ -11,6 +26,7 @@ function api(path, options = {}) {
         if (res.status === 401) {
             localStorage.removeItem("wc_token");
             localStorage.removeItem("wc_user");
+            localStorage.removeItem("wc_admin");
             window.dispatchEvent(new Event("wc-logout"));
         }
         return res;
@@ -63,8 +79,9 @@ function meczeWord(n) {
     return "meczów";
 }
 
-function Flag({ code, name }) {
-    return <img className="flag" src={flagUrl(code)} alt={name} title={name} loading="lazy" />;
+function Flag({ code, name, crest }) {
+    // Kluby maja herb pod wlasnym adresem; reprezentacje - flage wyliczana z kodu ISO.
+    return <img className="flag" src={crest || flagUrl(code)} alt={name} title={name} loading="lazy" />;
 }
 
 // ---- Typy innych uzytkownikow na zablokowany mecz (widoczne dopiero po jego rozpoczeciu) ----
@@ -210,7 +227,7 @@ function MatchRow({ match, onSaved }) {
 
             <div className="team home">
                 <span className="name">{match.team1Name}</span>
-                <Flag code={match.team1Code} name={match.team1Name} />
+                <Flag code={match.team1Code} name={match.team1Name} crest={match.team1Crest} />
             </div>
 
             <div className="score-box">
@@ -222,7 +239,7 @@ function MatchRow({ match, onSaved }) {
             </div>
 
             <div className="team away">
-                <Flag code={match.team2Code} name={match.team2Name} />
+                <Flag code={match.team2Code} name={match.team2Name} crest={match.team2Crest} />
                 <span className="name">{match.team2Name}</span>
             </div>
 
@@ -275,7 +292,7 @@ function Leaderboard({ me }) {
     const [entries, setEntries] = useState(null);
 
     useEffect(() => {
-        api(`${API}/leaderboard`).then((res) => {
+        api(scoped(`${API}/leaderboard`)).then((res) => {
             if (!res.ok) return;
             res.json().then(setEntries);
         });
@@ -351,7 +368,7 @@ function OthersChampionPicks({ teams }) {
         setOpen(true);
         if (picks === null) {
             setLoading(true);
-            const res = await api(`${API}/champion/all`);
+            const res = await api(scoped(`${API}/champion/all`));
             if (res.ok) {
                 setPicks(await res.json());
             } else {
@@ -407,7 +424,7 @@ function ChampionPicker() {
     const [justSaved, setJustSaved] = useState(false);
 
     function load() {
-        api(`${API}/champion`).then((res) => {
+        api(scoped(`${API}/champion`)).then((res) => {
             if (!res.ok) return;
             res.json().then((d) => {
                 setData(d);
@@ -420,7 +437,7 @@ function ChampionPicker() {
 
     async function save(code) {
         setSaving(true);
-        const res = await api(`${API}/champion`, {
+        const res = await api(scoped(`${API}/champion`), {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ code: code || null }),
@@ -454,16 +471,16 @@ function ChampionPicker() {
 
     return (
         <div className="champion-card">
-            <h2>🏆 Typ na mistrza turnieju</h2>
+            <h2>🏆 Typ na zwycięzcę rozgrywek</h2>
             <p className="champion-info">
-                Wybierz drużynę, która Twoim zdaniem wygra Mistrzostwa Świata 2026.
+                Wybierz drużynę, która Twoim zdaniem wygra te rozgrywki.
                 Za trafiony typ otrzymasz <strong>15 punktów</strong> tuż po finale.
             </p>
 
             {actualChampion && (
                 <div className="champion-result">
                     <span>Mistrz turnieju:</span>
-                    {championTeam && <Flag code={championTeam.code} name={championTeam.name} />}
+                    {championTeam && <Flag code={championTeam.code} name={championTeam.name} crest={championTeam.crestUrl} />}
                     <strong>{championTeam ? championTeam.name : actualChampion}</strong>
                     <span className={"points-badge" + (pointsEarned > 0 ? " hit" : "")}>
                         {pointsEarned > 0 ? `+${pointsEarned} pkt` : "0 pkt"}
@@ -472,7 +489,7 @@ function ChampionPicker() {
             )}
 
             <div className="champion-picker">
-                {pickedTeam && <Flag code={pickedTeam.code} name={pickedTeam.name} />}
+                {pickedTeam && <Flag code={pickedTeam.code} name={pickedTeam.name} crest={pickedTeam.crestUrl} />}
                 <select value={pick} disabled={locked || saving} onChange={onPick}>
                     <option value="">— wybierz drużynę —</option>
                     {teams.map((t) => (
@@ -596,7 +613,7 @@ function KnockoutMatchRow({ match, onSaved }) {
 
             <div className="team home">
                 <span className={"name" + (match.team1Code ? "" : " tbd")}>{match.team1Name || "do ustalenia"}</span>
-                {match.team1Code && <Flag code={match.team1Code} name={match.team1Name} />}
+                {match.team1Code && <Flag code={match.team1Code} name={match.team1Name} crest={match.team1Crest} />}
             </div>
 
             <div className="score-box">
@@ -608,7 +625,7 @@ function KnockoutMatchRow({ match, onSaved }) {
             </div>
 
             <div className="team away">
-                {match.team2Code && <Flag code={match.team2Code} name={match.team2Name} />}
+                {match.team2Code && <Flag code={match.team2Code} name={match.team2Name} crest={match.team2Crest} />}
                 <span className={"name" + (match.team2Code ? "" : " tbd")}>{match.team2Name || "do ustalenia"}</span>
             </div>
 
@@ -619,13 +636,13 @@ function KnockoutMatchRow({ match, onSaved }) {
                         <button type="button" disabled={locked}
                                 className={"adv-btn" + (adv === match.team1Code ? " active" : "")}
                                 onClick={() => setAdv(match.team1Code)}>
-                            <Flag code={match.team1Code} name={match.team1Name} />
+                            <Flag code={match.team1Code} name={match.team1Name} crest={match.team1Crest} />
                             {match.team1Name}
                         </button>
                         <button type="button" disabled={locked}
                                 className={"adv-btn" + (adv === match.team2Code ? " active" : "")}
                                 onClick={() => setAdv(match.team2Code)}>
-                            <Flag code={match.team2Code} name={match.team2Name} />
+                            <Flag code={match.team2Code} name={match.team2Name} crest={match.team2Crest} />
                             {match.team2Name}
                         </button>
                     </div>
@@ -716,10 +733,29 @@ function App({ user, onLogout }) {
     const [matches, setMatches] = useState([]);
     const [groupFilter, setGroupFilter] = useState("ALL");
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState("matches"); // "matches" | "knockout" | "leaderboard"
+    const [tab, setTab] = useState("matches"); // "matches" | "knockout" | "leaderboard" | "admin"
+
+    // Flaga tylko do pokazania zakladki - o dostepie decyduje serwer przy kazdym zadaniu.
+    const isAdmin = localStorage.getItem("wc_admin") === "true";
+
+    // Nazwa rozgrywek do naglowka - bez niej strona zawsze glosila "Mistrzostwa Świata"
+    const [tournamentName, setTournamentName] = useState("Rozgrywki");
+
+    useEffect(() => {
+        api(`${API}/tournaments`).then((res) => {
+            if (!res.ok) return;
+            res.json().then((list) => {
+                const current = list.find((t) => t.slug === TOURNAMENT);
+                if (current) {
+                    setTournamentName(current.name);
+                    document.title = `${current.name} — ParlayHub`;
+                }
+            });
+        });
+    }, []);
 
     async function loadAll() {
-        const res = await api(`${API}/matches`);
+        const res = await api(scoped(`${API}/matches`));
         if (!res.ok) return; // np. 401 - obsluzone globalnie (powrot do logowania)
         setMatches(await res.json());
         setLoading(false);
@@ -793,8 +829,8 @@ function App({ user, onLogout }) {
                     </div>
                 </div>
 
-                <h1>⚽ Mistrzostwa Świata <span className="grad">2026</span></h1>
-                <p className="tagline">Typuj wyniki • Faza grupowa • 11–27 czerwca 2026</p>
+                <h1>⚽ {tournamentName}</h1>
+                <p className="tagline">Typuj wyniki • {matches.length} {meczeWord(matches.length)}</p>
                 <div className="progress">
                     <div className="progress-track">
                         <div className="progress-fill" style={{ width: `${playedPct}%` }} />
@@ -812,10 +848,16 @@ function App({ user, onLogout }) {
                                 onClick={() => setTab("knockout")}>🏁 Faza pucharowa</button>
                         <button className={"chip wide" + (tab === "leaderboard" ? " active" : "")}
                                 onClick={() => setTab("leaderboard")}>🏆 Ranking</button>
+                        {isAdmin && (
+                            <button className={"chip wide" + (tab === "admin" ? " active" : "")}
+                                    onClick={() => setTab("admin")}>🛠 Panel</button>
+                        )}
                     </div>
                 </div>
 
-                {tab === "leaderboard" ? (
+                {tab === "admin" && isAdmin ? (
+                    <AdminPanel />
+                ) : tab === "leaderboard" ? (
                     <Leaderboard me={user} />
                 ) : tab === "knockout" ? (
                     <KnockoutStage matches={koMatches} onSaved={loadAll} />
@@ -913,6 +955,7 @@ function Root() {
     function logout() {
         localStorage.removeItem("wc_token");
         localStorage.removeItem("wc_user");
+        localStorage.removeItem("wc_admin");
         setUser(null);
     }
 

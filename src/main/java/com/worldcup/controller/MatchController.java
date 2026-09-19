@@ -6,29 +6,30 @@ import com.worldcup.dto.LeaderboardEntry;
 import com.worldcup.dto.MatchView;
 import com.worldcup.dto.ResultRequest;
 import com.worldcup.dto.TeamOption;
+import com.worldcup.dto.TournamentSummary;
 import com.worldcup.dto.UserChampionPickView;
 import com.worldcup.dto.UserPredictionView;
+import com.worldcup.model.ChampionPick;
 import com.worldcup.model.Match;
 import com.worldcup.model.Prediction;
-import com.worldcup.model.TournamentState;
-import com.worldcup.model.User;
+import com.worldcup.model.Team;
+import com.worldcup.model.Tournament;
+import com.worldcup.repository.ChampionPickRepository;
 import com.worldcup.repository.MatchRepository;
 import com.worldcup.repository.PredictionRepository;
-import com.worldcup.repository.TournamentStateRepository;
-import com.worldcup.repository.UserRepository;
+import com.worldcup.repository.TeamRepository;
+import com.worldcup.repository.TournamentRepository;
 import com.worldcup.service.JwtService;
 import com.worldcup.service.RankingService;
-import com.worldcup.service.ResultFetchService;
-import com.worldcup.service.Teams;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -37,47 +38,72 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
 public class MatchController {
 
+    /**
+     * Rozgrywki uzywane, gdy zadanie nie poda parametru "tournament".
+     * Dzieki temu starsze linki i zakladki nadal trafiaja na mundial.
+     */
+    private static final String DEFAULT_SLUG = "worldcup";
+
     private final MatchRepository matchRepository;
     private final PredictionRepository predictionRepository;
-    private final UserRepository userRepository;
-    private final TournamentStateRepository tournamentStateRepository;
+    private final TournamentRepository tournamentRepository;
+    private final TeamRepository teamRepository;
+    private final ChampionPickRepository championPickRepository;
     private final JwtService jwtService;
-    private final ResultFetchService resultFetchService;
     private final RankingService rankingService;
 
     public MatchController(MatchRepository matchRepository,
                           PredictionRepository predictionRepository,
-                          UserRepository userRepository,
-                          TournamentStateRepository tournamentStateRepository,
+                          TournamentRepository tournamentRepository,
+                          TeamRepository teamRepository,
+                          ChampionPickRepository championPickRepository,
                           JwtService jwtService,
-                          ResultFetchService resultFetchService,
                           RankingService rankingService) {
         this.matchRepository = matchRepository;
         this.predictionRepository = predictionRepository;
-        this.userRepository = userRepository;
-        this.tournamentStateRepository = tournamentStateRepository;
+        this.tournamentRepository = tournamentRepository;
+        this.teamRepository = teamRepository;
+        this.championPickRepository = championPickRepository;
         this.jwtService = jwtService;
-        this.resultFetchService = resultFetchService;
         this.rankingService = rankingService;
     }
 
-    /** Mecze wraz z typami ZALOGOWANEGO uzytkownika (nigdy cudzymi). */
+    /** Lista rozgrywek dla huba - widoczna dla kazdego zalogowanego. */
+    @GetMapping("/tournaments")
+    public List<TournamentSummary> getTournaments(
+            @RequestHeader(value = "Authorization", required = false) String auth) {
+        requireUser(auth);
+        return tournamentRepository.findAll().stream()
+                .map(t -> {
+                    List<Match> matches = matchRepository.findByTournamentIdOrderByKickoffUtcAscIdAsc(t.getId());
+                    long played = matches.stream().filter(m -> m.getActualScore1() != null).count();
+                    return new TournamentSummary(t, matches.size(), played);
+                })
+                .sorted(Comparator.comparing(TournamentSummary::name, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    /** Mecze rozgrywek wraz z typami ZALOGOWANEGO uzytkownika (nigdy cudzymi). */
     @GetMapping("/matches")
-    public List<MatchView> getMatches(@RequestHeader(value = "Authorization", required = false) String auth) {
+    public List<MatchView> getMatches(@RequestHeader(value = "Authorization", required = false) String auth,
+                                      @RequestParam(value = "tournament", required = false) String slug) {
         String username = requireUser(auth);
+        Tournament tournament = tournament(slug);
 
         Map<Long, Prediction> mine = new HashMap<>();
         for (Prediction p : predictionRepository.findByUsername(username)) {
             mine.put(p.getMatchId(), p);
         }
 
-        return matchRepository.findAllByOrderByKickoffUtcAscIdAsc().stream()
-                .map(m -> new MatchView(m, mine.get(m.getId())))
+        Map<String, String> crests = crestsByCode(tournament.getId());
+        return matchRepository.findByTournamentIdOrderByKickoffUtcAscIdAsc(tournament.getId()).stream()
+                .map(m -> new MatchView(m, mine.get(m.getId()), crests))
                 .toList();
     }
 
@@ -155,94 +181,126 @@ public class MatchController {
     }
 
     /**
-     * Ranking wszystkich zarejestrowanych uzytkownikow (na poczatek kazdy ma 0 punktow).
+     * Ranking rozgrywek - tylko uzytkownicy, ktorzy w tych rozgrywkach cokolwiek typowali.
      * Przy rownej liczbie punktow rozstrzyga skutecznosc, a dalej dokladne wyniki.
      */
     @GetMapping("/leaderboard")
-    public List<LeaderboardEntry> getLeaderboard(@RequestHeader(value = "Authorization", required = false) String auth) {
+    public List<LeaderboardEntry> getLeaderboard(
+            @RequestHeader(value = "Authorization", required = false) String auth,
+            @RequestParam(value = "tournament", required = false) String slug) {
         requireUser(auth);
-        Map<String, RankingService.Stats> stats = rankingService.statsByUser();
-        return rankingService.rankedUsers(stats).stream()
+        Tournament tournament = tournament(slug);
+        Set<String> active = rankingService.activeUsernames(tournament.getId());
+        return rankingService.standings(tournament.getId()).stream()
+                .filter(s -> active.contains(s.username().toLowerCase()))
                 .map(LeaderboardEntry::new)
                 .toList();
     }
 
-    /** Stan typu na mistrza turnieju (lista druzyn, wlasny typ, blokada, rzeczywisty mistrz). */
+    /** Stan typu na zwyciezce rozgrywek (lista druzyn, wlasny typ, blokada, faktyczny zwyciezca). */
     @GetMapping("/champion")
-    public ChampionView getChampion(@RequestHeader(value = "Authorization", required = false) String auth) {
+    public ChampionView getChampion(@RequestHeader(value = "Authorization", required = false) String auth,
+                                    @RequestParam(value = "tournament", required = false) String slug) {
         String username = requireUser(auth);
-        User user = userRepository.findByUsernameIgnoreCase(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token niewazny"));
+        Tournament tournament = tournament(slug);
 
-        List<TeamOption> teams = Teams.CODES.entrySet().stream()
-                .map(e -> new TeamOption(e.getValue(), e.getKey()))
-                .sorted(Comparator.comparing(TeamOption::getName))
+        List<TeamOption> teams = teamRepository.findByTournamentIdOrderByNameAsc(tournament.getId()).stream()
+                .map(TeamOption::new)
                 .toList();
 
-        TournamentState state = tournamentStateRepository.getOrCreate();
-        return new ChampionView(teams, user.getChampionPick(), isChampionPickLocked(), state.getChampionCode());
+        String pick = championPickRepository
+                .findByUsernameIgnoreCaseAndTournamentId(username, tournament.getId())
+                .map(ChampionPick::getTeamCode)
+                .orElse(null);
+
+        return new ChampionView(teams, pick, isChampionPickLocked(tournament), tournament.getChampionCode());
     }
 
-    /** Zapis lub wyczyszczenie WLASNEGO typu na mistrza turnieju (przed startem turnieju). */
+    /** Zapis lub wyczyszczenie WLASNEGO typu na zwyciezce rozgrywek (przed ich startem). */
     @PutMapping("/champion")
     public ResponseEntity<ChampionView> updateChampion(
             @RequestHeader(value = "Authorization", required = false) String auth,
+            @RequestParam(value = "tournament", required = false) String slug,
             @RequestBody ChampionRequest request) {
 
         String username = requireUser(auth);
-        User user = userRepository.findByUsernameIgnoreCase(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token niewazny"));
+        Tournament tournament = tournament(slug);
 
-        if (isChampionPickLocked()) {
+        if (!tournament.isChampionEnabled() || isChampionPickLocked(tournament)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         String code = request.getCode();
-        if (code != null && !Teams.CODES.containsValue(code)) {
+        if (code != null && teamRepository.findByTournamentIdAndCode(tournament.getId(), code).isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
 
-        user.setChampionPick(code);
-        userRepository.save(user);
+        ChampionPick pick = championPickRepository
+                .findByUsernameIgnoreCaseAndTournamentId(username, tournament.getId())
+                .orElseGet(() -> new ChampionPick(username, tournament.getId(), null));
 
-        return ResponseEntity.ok(getChampion(auth));
+        if (code == null) {
+            if (pick.getId() != null) {
+                championPickRepository.delete(pick);
+            }
+        } else {
+            pick.setTeamCode(code);
+            championPickRepository.save(pick);
+        }
+
+        return ResponseEntity.ok(getChampion(auth, slug));
     }
 
-    /** Typy wszystkich uzytkownikow na mistrza turnieju - widoczne dopiero po zablokowaniu typowania. */
+    /** Typy wszystkich uzytkownikow na zwyciezce - widoczne dopiero po zablokowaniu typowania. */
     @GetMapping("/champion/all")
     public ResponseEntity<List<UserChampionPickView>> getAllChampionPicks(
-            @RequestHeader(value = "Authorization", required = false) String auth) {
+            @RequestHeader(value = "Authorization", required = false) String auth,
+            @RequestParam(value = "tournament", required = false) String slug) {
 
         requireUser(auth);
+        Tournament tournament = tournament(slug);
 
-        if (!isChampionPickLocked()) {
+        if (!isChampionPickLocked(tournament)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        String actualChampion = tournamentStateRepository.getOrCreate().getChampionCode();
+        String actualChampion = tournament.getChampionCode();
 
-        List<UserChampionPickView> picks = userRepository.findAll().stream()
-                .filter(u -> u.getChampionPick() != null)
-                .map(u -> new UserChampionPickView(u, actualChampion))
+        List<UserChampionPickView> picks = championPickRepository.findByTournamentId(tournament.getId()).stream()
+                .filter(p -> p.getTeamCode() != null)
+                .map(p -> new UserChampionPickView(p.getUsername(), p.getTeamCode(), actualChampion))
                 .sorted(Comparator.comparing(UserChampionPickView::getUsername, String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
         return ResponseEntity.ok(picks);
     }
 
-    /** Typ na mistrza blokuje sie wraz z poczatkiem turnieju (pierwszy mecz fazy grupowej). */
-    private boolean isChampionPickLocked() {
-        return matchRepository.findFirstByGroupNameNotOrderByKickoffUtcAsc("TEST")
+    /** Kod druzyny -> adres herbu; puste dla reprezentacji (flaga wynika z kodu ISO). */
+    private Map<String, String> crestsByCode(Long tournamentId) {
+        Map<String, String> crests = new HashMap<>();
+        for (Team team : teamRepository.findByTournamentIdOrderByNameAsc(tournamentId)) {
+            if (team.getCrestUrl() != null) {
+                crests.put(team.getCode(), team.getCrestUrl());
+            }
+        }
+        return crests;
+    }
+
+    /** Typ na zwyciezce blokuje sie wraz z pierwszym meczem rozgrywek (pomijajac mecze testowe). */
+    private boolean isChampionPickLocked(Tournament tournament) {
+        return matchRepository.findByTournamentIdOrderByKickoffUtcAscIdAsc(tournament.getId()).stream()
+                .filter(m -> !"TEST".equals(m.getGroupName()))
+                .findFirst()
                 .map(m -> !Instant.now().isBefore(Instant.parse(m.getKickoffUtc())))
                 .orElse(false);
     }
 
-    /** Recznie wymusza sprawdzenie wynikow zakonczonych meczow i przyznanie punktow. */
-    @PostMapping("/results/refresh")
-    public ResponseEntity<Void> refreshResults(@RequestHeader(value = "Authorization", required = false) String auth) {
-        requireUser(auth);
-        resultFetchService.refresh();
-        return ResponseEntity.noContent().build();
+    /** Rozgrywki po slugu; bez parametru - domyslne, zeby stare linki dalej dzialaly. */
+    private Tournament tournament(String slug) {
+        String wanted = (slug == null || slug.isBlank()) ? DEFAULT_SLUG : slug.trim();
+        return tournamentRepository.findBySlug(wanted)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Nie ma rozgrywek o adresie '" + wanted + "'"));
     }
 
     /** Wyciaga nazwe uzytkownika z naglowka Authorization: Bearer <token> lub zwraca 401. */

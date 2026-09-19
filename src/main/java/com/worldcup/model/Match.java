@@ -17,6 +17,10 @@ public class Match {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Turniej, do ktorego nalezy mecz. Nullowalne: kolumna dochodzi do istniejacej tabeli,
+    // a backfill starych meczow robi TournamentBootstrap przy starcie.
+    private Long tournamentId;
+
     private String groupName;   // litera grupy: A..L
     private String date;        // data "dnia meczowego" w formacie ISO, np. "2026-06-11" (sluzy do grupowania)
     private String kickoffUtc;  // dokladny moment startu w UTC, np. "2026-06-11T19:00:00Z"
@@ -60,6 +64,14 @@ public class Match {
 
     public Long getId() {
         return id;
+    }
+
+    public Long getTournamentId() {
+        return tournamentId;
+    }
+
+    public void setTournamentId(Long tournamentId) {
+        this.tournamentId = tournamentId;
     }
 
     public String getGroupName() {

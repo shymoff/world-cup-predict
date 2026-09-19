@@ -45,6 +45,11 @@ public class UserService {
         return user.getUsername();
     }
 
+    /** Czy konto ma dostep do panelu admina (flage nadaje TournamentBootstrap wg APP_ADMIN_USERNAME). */
+    public boolean isAdmin(String username) {
+        return repository.findByUsernameIgnoreCase(username).map(User::isAdmin).orElse(false);
+    }
+
     /** Zwraca kanoniczna nazwe uzytkownika przy poprawnym logowaniu; inaczej null. */
     public String authenticate(String username, String password) {
         if (username == null || password == null) {

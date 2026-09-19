@@ -1,15 +1,15 @@
 package com.worldcup.dto;
 
-import com.worldcup.model.User;
+import com.worldcup.service.RankingService;
 
 public class LeaderboardEntry {
 
-    private String username;
-    private int points;
+    private final String username;
+    private final int points;
 
-    public LeaderboardEntry(User user) {
-        this.username = user.getUsername();
-        this.points = user.getPoints();
+    public LeaderboardEntry(RankingService.Standing standing) {
+        this.username = standing.username();
+        this.points = standing.points();
     }
 
     public String getUsername() {

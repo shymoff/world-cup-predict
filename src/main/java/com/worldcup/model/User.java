@@ -28,8 +28,17 @@ public class User {
     @Column(nullable = false)
     private int points = 0;
 
-    /** Kod ISO (flagcdn) typowanego mistrza turnieju, np. "br". Null = brak typu. */
+    /**
+     * Kod ISO (flagcdn) typowanego mistrza turnieju, np. "br". Null = brak typu.
+     *
+     * @deprecated typy na zwyciezce trzyma teraz {@link ChampionPick} (jeden na turniej).
+     *             Kolumna zostaje wylacznie dla zgodnosci z istniejaca baza.
+     */
+    @Deprecated
     private String championPick;
+
+    /** Czy uzytkownik ma dostep do panelu admina. Nullowalne - null traktujemy jak false. */
+    private Boolean admin;
 
     public User() {
     }
@@ -67,11 +76,21 @@ public class User {
         this.points = points;
     }
 
+    @Deprecated
     public String getChampionPick() {
         return championPick;
     }
 
+    @Deprecated
     public void setChampionPick(String championPick) {
         this.championPick = championPick;
+    }
+
+    public boolean isAdmin() {
+        return Boolean.TRUE.equals(admin);
+    }
+
+    public void setAdmin(Boolean admin) {
+        this.admin = admin;
     }
 }

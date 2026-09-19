@@ -3,13 +3,16 @@ package com.worldcup.controller;
 import com.worldcup.dto.ChangePasswordRequest;
 import com.worldcup.dto.UserProfileView;
 import com.worldcup.dto.WonTournamentView;
-import com.worldcup.model.TournamentState;
+import com.worldcup.model.ChampionPick;
+import com.worldcup.model.Team;
+import com.worldcup.model.Tournament;
 import com.worldcup.model.User;
-import com.worldcup.repository.TournamentStateRepository;
+import com.worldcup.repository.ChampionPickRepository;
+import com.worldcup.repository.TeamRepository;
+import com.worldcup.repository.TournamentRepository;
 import com.worldcup.repository.UserRepository;
 import com.worldcup.service.JwtService;
 import com.worldcup.service.RankingService;
-import com.worldcup.service.Teams;
 import com.worldcup.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -29,57 +33,69 @@ import java.util.Map;
 @RequestMapping("/api/user")
 public class UserController {
 
-    private static final String TOURNAMENT_NAME = "Mistrzostwa Świata 2026";
+    /** Rozgrywki, z ktorych konto pokazuje typ na zwyciezce (hub nie ma jeszcze przelacznika). */
+    private static final String DEFAULT_SLUG = "worldcup";
 
     private final UserRepository userRepository;
-    private final TournamentStateRepository tournamentStateRepository;
+    private final TournamentRepository tournamentRepository;
+    private final TeamRepository teamRepository;
+    private final ChampionPickRepository championPickRepository;
     private final UserService userService;
     private final JwtService jwtService;
     private final RankingService rankingService;
 
     public UserController(UserRepository userRepository,
-                           TournamentStateRepository tournamentStateRepository,
+                           TournamentRepository tournamentRepository,
+                           TeamRepository teamRepository,
+                           ChampionPickRepository championPickRepository,
                            UserService userService,
                            JwtService jwtService,
                            RankingService rankingService) {
         this.userRepository = userRepository;
-        this.tournamentStateRepository = tournamentStateRepository;
+        this.tournamentRepository = tournamentRepository;
+        this.teamRepository = teamRepository;
+        this.championPickRepository = championPickRepository;
         this.userService = userService;
         this.jwtService = jwtService;
         this.rankingService = rankingService;
     }
 
-    /** Profil zalogowanego uzytkownika: pozycja w rankingu, statystyki typow, wygrane turnieje. */
+    /**
+     * Profil zalogowanego uzytkownika. Punkty, pozycja i statystyki obejmuja
+     * WSZYSTKIE rozgrywki lacznie - to widok konta na hubie, nie ranking jednej gry.
+     */
     @GetMapping("/profile")
     public UserProfileView getProfile(@RequestHeader(value = "Authorization", required = false) String auth) {
         String username = requireUser(auth);
         User user = userRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token niewazny"));
 
-        Map<String, RankingService.Stats> statsMap = rankingService.statsByUser();
-        List<User> ranking = rankingService.rankedUsers(statsMap);
-        int rank = 1;
-        for (User u : ranking) {
-            if (u.getUsername().equalsIgnoreCase(username)) {
-                break;
-            }
-            rank++;
+        List<RankingService.Standing> overall = rankingService.standings(null);
+        RankingService.Standing mine = overall.stream()
+                .filter(s -> s.username().equalsIgnoreCase(username))
+                .findFirst()
+                .orElse(new RankingService.Standing(user.getUsername(), 0, RankingService.Stats.EMPTY, overall.size()));
+
+        Tournament defaultTournament = tournamentRepository.findBySlug(DEFAULT_SLUG).orElse(null);
+        String championPickCode = null;
+        String championPickName = null;
+        Boolean championPickCorrect = null;
+        if (defaultTournament != null) {
+            championPickCode = championPickRepository
+                    .findByUsernameIgnoreCaseAndTournamentId(username, defaultTournament.getId())
+                    .map(ChampionPick::getTeamCode)
+                    .orElse(null);
+            championPickName = teamName(defaultTournament.getId(), championPickCode);
+            String actual = defaultTournament.getChampionCode();
+            championPickCorrect = (actual == null || championPickCode == null)
+                    ? null
+                    : championPickCode.equals(actual);
         }
 
-        RankingService.Stats stats = RankingService.statsFor(statsMap, user);
-
-        TournamentState state = tournamentStateRepository.getOrCreate();
-        String championPickCode = user.getChampionPick();
-        String championPickName = teamNameByCode(championPickCode);
-        Boolean championPickCorrect = state.getChampionCode() == null || championPickCode == null
-                ? null
-                : championPickCode.equals(state.getChampionCode());
-
-        List<WonTournamentView> wonTournaments = podiumOf(user, ranking, statsMap, state);
-
-        return new UserProfileView(user.getUsername(), user.getPoints(), rank, ranking.size(),
+        RankingService.Stats stats = mine.stats();
+        return new UserProfileView(user.getUsername(), mine.points(), mine.place(), overall.size(),
                 stats.predictionsMade(), stats.settled(), stats.exact(), stats.hits(),
-                championPickCode, championPickName, championPickCorrect, wonTournaments);
+                championPickCode, championPickName, championPickCorrect, podiumOf(username));
     }
 
     /** Podium (gablota) dowolnego uzytkownika - do podgladu z rankingu. */
@@ -90,32 +106,30 @@ public class UserController {
         requireUser(auth);
         User user = userRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Nie ma takiego użytkownika"));
-        Map<String, RankingService.Stats> statsMap = rankingService.statsByUser();
-        List<User> ranking = rankingService.rankedUsers(statsMap);
-        TournamentState state = tournamentStateRepository.getOrCreate();
-        return podiumOf(user, ranking, statsMap, state);
+        return podiumOf(user.getUsername());
     }
 
     /**
-     * Miejsce na podium (1-3) po zakonczeniu turnieju, wg punktow, a przy remisie
-     * wg skutecznosci, a dalej dokladnych wynikow. Uzytkownicy rowni we wszystkich
-     * kryteriach dziela miejsce (ranking gesty po unikalnych kluczach pozycji).
+     * Miejsca na podium (1-3) w kazdych ZAKONCZONYCH rozgrywkach - po jednym wpisie na turniej.
+     * Uzytkownicy rowni we wszystkich kryteriach dziela miejsce (ranking gesty).
      */
-    private List<WonTournamentView> podiumOf(User user, List<User> ranking,
-                                             Map<String, RankingService.Stats> statsMap, TournamentState state) {
-        if (state.getChampionCode() == null || ranking.isEmpty()) {
-            return List.of();
+    private List<WonTournamentView> podiumOf(String username) {
+        List<WonTournamentView> won = new ArrayList<>();
+        for (Tournament tournament : tournamentRepository.findAll()) {
+            if (!tournament.isFinished() && tournament.getChampionCode() == null) {
+                continue; // rozgrywki wciaz trwaja - podium jeszcze nie istnieje
+            }
+            RankingService.Standing standing = rankingService.standingOf(username, tournament.getId());
+            if (standing == null || standing.place() > 3) {
+                continue;
+            }
+            // Bez ani jednego typu nie ma mowy o miejscu na podium (konto zalozone po turnieju).
+            if (standing.stats().predictionsMade() == 0) {
+                continue;
+            }
+            won.add(new WonTournamentView(tournament.getName(), standing.points(), standing.place()));
         }
-        RankingService.RankKey userKey = rankingService.rankKey(user, statsMap);
-        int place = (int) ranking.stream()
-                .map(u -> rankingService.rankKey(u, statsMap))
-                .distinct()
-                .takeWhile(k -> k.compareTo(userKey) > 0)
-                .count() + 1;
-        if (place > 3) {
-            return List.of();
-        }
-        return List.of(new WonTournamentView(TOURNAMENT_NAME, user.getPoints(), place));
+        return won;
     }
 
     /** Zmiana wlasnego hasla - wymaga podania aktualnego hasla. */
@@ -133,14 +147,12 @@ public class UserController {
         }
     }
 
-    private String teamNameByCode(String code) {
+    private String teamName(Long tournamentId, String code) {
         if (code == null) {
             return null;
         }
-        return Teams.CODES.entrySet().stream()
-                .filter(e -> e.getValue().equals(code))
-                .map(Map.Entry::getKey)
-                .findFirst()
+        return teamRepository.findByTournamentIdAndCode(tournamentId, code)
+                .map(Team::getName)
                 .orElse(code);
     }
 

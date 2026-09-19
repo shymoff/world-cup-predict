@@ -25,6 +25,8 @@
     <div id="root">
         <div class="loading">Ładowanie aplikacji…</div>
     </div>
+    <!-- admin.js przed app.js: App renderuje sie na koncu app.js i musi juz widziec AdminPanel -->
+    <script type="text/babel" src="admin.js"></script>
     <script type="text/babel" src="app.js"></script>
 </body>
 </html>

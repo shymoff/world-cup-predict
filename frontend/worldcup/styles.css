@@ -1,6 +1,6 @@
 :root {
     --bg: #090d14;
-    --bg-glow-1: rgba(16, 185, 129, 0.10);
+    --bg-glow-1: rgba(var(--accent-rgb), 0.10);
     --bg-glow-2: rgba(59, 130, 246, 0.10);
     --panel: rgba(23, 30, 42, 0.72);
     --panel-solid: #151c28;
@@ -8,14 +8,45 @@
     --border: rgba(148, 163, 184, 0.14);
     --border-strong: rgba(148, 163, 184, 0.28);
     --accent: #10b981;
+    --accent-rgb: 16, 185, 129;
     --accent-bright: #34d399;
     --accent-2: #60a5fa;
+    --accent-2-rgb: 96, 165, 250;
+    --accent-deep: #0ea66f;
+    --login-glow-2-rgb: 59, 130, 246;
     --text: #e8eef6;
     --muted: #94a3b8;
     --gold: #fbbf24;
     --danger: #f87171;
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     --radius: 16px;
+}
+
+/* Motyw ParlayHub (pomaranczowy) dla rozgrywek, ktore maja wygladac jak strona
+   glowna huba - patrz przelacznik w app.js. Reszta turniejow (np. MS 2026)
+   zostaje przy domyslnej, zielono-niebieskiej palecie z :root powyzej. */
+body.theme-hub {
+    --bg: #0a0a0b;
+    --bg-glow-1: rgba(249, 115, 22, 0.14);
+    --bg-glow-2: rgba(234, 88, 12, 0.08);
+    --panel: rgba(24, 24, 27, 0.72);
+    --panel-solid: #161618;
+    --panel-2: rgba(38, 38, 42, 0.65);
+    --border: rgba(250, 250, 250, 0.10);
+    --border-strong: rgba(249, 115, 22, 0.45);
+    --accent: #f97316;
+    --accent-rgb: 249, 115, 22;
+    --accent-bright: #fb923c;
+    --accent-2: #ea580c;
+    --accent-2-rgb: 234, 88, 12;
+    --accent-deep: #ea580c;
+    --login-glow-2-rgb: 234, 88, 12;
+    --text: #fafafa;
+    --muted: #a1a1aa;
+    --gold: #fbbf24;
+    --danger: #f87171;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    --radius: 18px;
 }
 
 * {
@@ -37,6 +68,52 @@ body {
     color: var(--text);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
+}
+
+/* Powoli dryfujace poswiaty w tle - tylko w motywie huba (Liga Narodow), zeby MS 2026
+   zostalo calkowicie statyczne. Ujemny z-index trzyma je za trescia strony. */
+body.theme-hub::before,
+body.theme-hub::after {
+    content: "";
+    position: fixed;
+    width: 640px;
+    height: 640px;
+    border-radius: 50%;
+    filter: blur(90px);
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.55;
+}
+
+body.theme-hub::before {
+    top: -220px;
+    left: -180px;
+    background: radial-gradient(circle, rgba(var(--accent-rgb), 0.35), transparent 70%);
+    animation: hub-drift-1 26s ease-in-out infinite alternate;
+}
+
+body.theme-hub::after {
+    bottom: -240px;
+    right: -200px;
+    background: radial-gradient(circle, rgba(var(--accent-2-rgb), 0.28), transparent 70%);
+    animation: hub-drift-2 32s ease-in-out infinite alternate;
+}
+
+@keyframes hub-drift-1 {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(120px, 90px); }
+}
+
+@keyframes hub-drift-2 {
+    from { transform: translate(0, 0); }
+    to   { transform: translate(-110px, -70px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.theme-hub::before,
+    body.theme-hub::after {
+        animation: none;
+    }
 }
 
 h1, h2, h3 {
@@ -102,7 +179,7 @@ header.app-header .tagline {
     height: 100%;
     border-radius: 999px;
     background: linear-gradient(90deg, var(--accent), var(--accent-bright));
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.55);
+    box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.55);
     transition: width 0.4s ease;
 }
 
@@ -387,7 +464,7 @@ header.app-header .tagline {
 .profile-password-form input:focus {
     outline: none;
     border-color: var(--accent-2);
-    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+    box-shadow: 0 0 0 3px rgba(var(--accent-2-rgb), 0.18);
 }
 
 .profile-password-form .saved-badge {
@@ -428,9 +505,9 @@ header.app-header .tagline {
     align-items: center;
     justify-content: center;
     font-size: 34px;
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(59, 130, 246, 0.25));
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25), rgba(var(--login-glow-2-rgb), 0.25));
     border: 1px solid var(--border-strong);
-    box-shadow: 0 6px 24px rgba(16, 185, 129, 0.25);
+    box-shadow: 0 6px 24px rgba(var(--accent-rgb), 0.25);
 }
 
 .login-card h1 {
@@ -472,7 +549,7 @@ header.app-header .tagline {
 .login-card input:focus {
     outline: none;
     border-color: var(--accent-2);
-    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+    box-shadow: 0 0 0 3px rgba(var(--accent-2-rgb), 0.18);
 }
 
 .login-error {
@@ -571,9 +648,9 @@ header.app-header .tagline {
 }
 
 .tab-bar .chip.active {
-    background: linear-gradient(135deg, var(--accent), #0ea66f);
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
     color: #06241a;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
 
 /* ---------- Ranking ---------- */
@@ -631,7 +708,7 @@ header.app-header .tagline {
 }
 
 .leaderboard-table tr.me td {
-    background: rgba(16, 185, 129, 0.08);
+    background: rgba(var(--accent-rgb), 0.08);
 }
 
 .leaderboard-table tr.last td {
@@ -639,7 +716,7 @@ header.app-header .tagline {
 }
 
 .leaderboard-table tr.last.me td {
-    background: linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(248, 113, 113, 0.1));
+    background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.08), rgba(248, 113, 113, 0.1));
 }
 
 .leaderboard-table .lb-rank {
@@ -671,8 +748,8 @@ header.app-header .tagline {
     text-transform: uppercase;
     letter-spacing: 0.8px;
     color: var(--accent-bright);
-    background: rgba(16, 185, 129, 0.14);
-    border: 1px solid rgba(16, 185, 129, 0.35);
+    background: rgba(var(--accent-rgb), 0.14);
+    border: 1px solid rgba(var(--accent-rgb), 0.35);
     vertical-align: 1px;
 }
 
@@ -816,7 +893,7 @@ header.app-header .tagline {
 .champion-picker select:focus {
     outline: none;
     border-color: var(--accent-2);
-    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+    box-shadow: 0 0 0 3px rgba(var(--accent-2-rgb), 0.18);
 }
 
 .champion-picker select:disabled {
@@ -934,9 +1011,9 @@ header.app-header .tagline {
 
 .adv-btn.active {
     border-color: var(--accent);
-    background: rgba(16, 185, 129, 0.14);
+    background: rgba(var(--accent-rgb), 0.14);
     color: var(--accent-bright);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.18);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.18);
 }
 
 .adv-btn:disabled {
@@ -987,10 +1064,10 @@ header.app-header .tagline {
 }
 
 .chip.active {
-    background: linear-gradient(135deg, var(--accent), #0ea66f);
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
     border-color: transparent;
     color: #06241a;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.3);
 }
 
 /* ---------- Karta jednego dnia ---------- */
@@ -1063,11 +1140,11 @@ header.app-header .tagline {
 }
 
 .match-row.played {
-    background: rgba(16, 185, 129, 0.05);
+    background: rgba(var(--accent-rgb), 0.05);
 }
 
 .match-row.played:hover {
-    background: rgba(16, 185, 129, 0.08);
+    background: rgba(var(--accent-rgb), 0.08);
 }
 
 /* Linia meta nad meczem: godzina + grupa + ET */
@@ -1128,10 +1205,10 @@ header.app-header .tagline {
 }
 
 .points-badge.hit {
-    background: rgba(16, 185, 129, 0.14);
+    background: rgba(var(--accent-rgb), 0.14);
     color: var(--accent-bright);
-    border-color: rgba(16, 185, 129, 0.45);
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.18);
+    border-color: rgba(var(--accent-rgb), 0.45);
+    box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.18);
 }
 
 .team {
@@ -1199,7 +1276,7 @@ header.app-header .tagline {
 .score-box input:focus {
     outline: none;
     border-color: var(--accent-2);
-    box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.18);
+    box-shadow: 0 0 0 3px rgba(var(--accent-2-rgb), 0.18);
 }
 
 .score-box input:disabled {
@@ -1309,9 +1386,9 @@ header.app-header .tagline {
 }
 
 .other-points.hit {
-    background: rgba(16, 185, 129, 0.14);
+    background: rgba(var(--accent-rgb), 0.14);
     color: var(--accent-bright);
-    border-color: rgba(16, 185, 129, 0.45);
+    border-color: rgba(var(--accent-rgb), 0.45);
 }
 
 .others-hint {
@@ -1346,13 +1423,13 @@ header.app-header .tagline {
 }
 
 .btn-save {
-    background: linear-gradient(135deg, var(--accent), #0ea66f);
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
     color: #06241a;
-    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+    box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.25);
 }
 
 .btn-save:hover:not(:disabled) {
-    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
+    box-shadow: 0 6px 18px rgba(var(--accent-rgb), 0.4);
 }
 
 .btn-clear {
@@ -1442,5 +1519,330 @@ footer a:hover {
     .tab-bar .chip.wide {
         padding: 0 12px;
         font-size: 12.5px;
+    }
+}
+
+/* ---- Panel administratora ---- */
+
+.admin-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.admin-panel label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.admin-panel input[type="text"],
+.admin-panel input[type="number"],
+.admin-panel input[type="datetime-local"],
+.admin-panel input:not([type]),
+.admin-panel select {
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.admin-panel input:focus,
+.admin-panel select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.admin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+}
+
+.admin-form-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.admin-form-row > label {
+    flex: 0 1 200px;
+}
+
+.admin-grow {
+    flex: 1 1 280px !important;
+}
+
+.admin-btn {
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+
+.admin-btn:hover:not(:disabled) {
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+}
+
+.admin-btn:disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+.admin-btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+    border-color: transparent;
+    color: #06241a;
+}
+
+.admin-x {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all .15s;
+}
+
+.admin-x:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.admin-notice {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(var(--accent-rgb), .35);
+    background: rgba(var(--accent-rgb), .10);
+    color: var(--accent-bright);
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.admin-notice-error {
+    border-color: rgba(248, 113, 113, .4);
+    background: rgba(248, 113, 113, .10);
+    color: var(--danger);
+}
+
+.admin-subtabs {
+    display: flex;
+    gap: 8px;
+}
+
+.admin-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-empty {
+    margin: 0;
+    padding: 18px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+}
+
+.admin-hint {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+/* Druzyny */
+
+.admin-team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+.admin-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--panel);
+}
+
+.admin-crest {
+    width: 26px;
+    height: 18px;
+    object-fit: contain;
+    border-radius: 3px;
+    flex: none;
+}
+
+.admin-country-preview {
+    align-self: center;
+    width: 30px;
+    height: 21px;
+}
+
+.admin-team-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.admin-team-code {
+    font-size: 11.5px;
+    color: var(--muted);
+    font-variant: tabular-nums;
+}
+
+/* Mecze */
+
+.admin-match {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+}
+
+.admin-match-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-match-tag {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.admin-match-time {
+    font-size: 12.5px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-match-teams {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.admin-vs {
+    color: var(--muted);
+    font-weight: 500;
+    margin: 0 4px;
+}
+
+.admin-match-preds {
+    margin-left: auto;
+    font-size: 11.5px;
+    color: var(--accent-2);
+    font-weight: 600;
+}
+
+.admin-match-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-score {
+    width: 56px;
+    text-align: center;
+}
+
+.admin-colon {
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.admin-advancing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(251, 191, 36, .08);
+    border: 1px solid rgba(251, 191, 36, .3);
+    font-size: 13px;
+    color: var(--gold);
+    font-weight: 600;
+}
+
+.admin-advancing label {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px !important;
+    text-transform: none !important;
+    font-size: 13px !important;
+    color: var(--text) !important;
+}
+
+.admin-match-edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+}
+
+.admin-match-edit > label {
+    flex: 0 1 190px;
+}
+
+@media (max-width: 640px) {
+    .admin-form-row > label,
+    .admin-match-edit > label {
+        flex: 1 1 100%;
+    }
+
+    .admin-match-preds {
+        margin-left: 0;
     }
 }

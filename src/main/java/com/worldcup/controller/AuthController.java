@@ -44,7 +44,11 @@ public class AuthController {
         return ResponseEntity.ok(tokenResponse(username));
     }
 
-    private Map<String, String> tokenResponse(String username) {
-        return Map.of("token", jwtService.generate(username), "username", username);
+    /** Token + nazwa konta i flaga admina, po ktorej front decyduje o pokazaniu panelu. */
+    private Map<String, Object> tokenResponse(String username) {
+        return Map.of(
+                "token", jwtService.generate(username),
+                "username", username,
+                "admin", userService.isAdmin(username));
     }
 }

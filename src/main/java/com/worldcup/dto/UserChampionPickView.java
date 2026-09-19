@@ -1,10 +1,9 @@
 package com.worldcup.dto;
 
-import com.worldcup.model.User;
 import com.worldcup.service.ScoringService;
 
 /**
- * Typ JEDNEGO uzytkownika na mistrza turnieju - widoczny dla innych po zablokowaniu typowania.
+ * Typ JEDNEGO uzytkownika na zwyciezce rozgrywek - widoczny dla innych po zablokowaniu typowania.
  */
 public class UserChampionPickView {
 
@@ -12,9 +11,9 @@ public class UserChampionPickView {
     private final String code;
     private final Integer pointsEarned;
 
-    public UserChampionPickView(User u, String actualChampion) {
-        this.username = u.getUsername();
-        this.code = u.getChampionPick();
+    public UserChampionPickView(String username, String code, String actualChampion) {
+        this.username = username;
+        this.code = code;
         if (actualChampion == null) {
             this.pointsEarned = null;
         } else {

@@ -1,10 +1,9 @@
 package com.worldcup.service;
 
 import com.worldcup.model.Match;
-import com.worldcup.model.Prediction;
 import com.worldcup.repository.MatchRepository;
-import com.worldcup.repository.PredictionRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -19,40 +18,21 @@ import java.util.List;
  * 12 grup (A-L) po 4 zespoly = 72 mecze, ulozone wg dni rozgrywania.
  */
 @Component
+@Order(1)
 public class DataSeeder implements CommandLineRunner {
 
     private final MatchRepository repository;
-    private final PredictionRepository predictionRepository;
 
-    public DataSeeder(MatchRepository repository, PredictionRepository predictionRepository) {
+    public DataSeeder(MatchRepository repository) {
         this.repository = repository;
-        this.predictionRepository = predictionRepository;
     }
 
     @Override
     public void run(String... args) {
         if (repository.count() == 0) {
-            seedGroupStage(); // pelna faza grupowa + mecz testowy z API
+            seedGroupStage();
         }
-        removeLegacyTestKnockoutMatches(); // mecze pucharowe pochodza teraz z synchronizacji z API
-    }
-
-    /**
-     * Usuwa wczesniejsze testowe mecze pucharowe (roundName != null bez externalId) wraz z typami.
-     * Mecze fazy pucharowej pochodza obecnie z synchronizacji z football-data.org (maja externalId).
-     */
-    private void removeLegacyTestKnockoutMatches() {
-        List<Match> legacy = repository.findByRoundNameIsNotNullAndExternalIdIsNull();
-        if (legacy.isEmpty()) {
-            return;
-        }
-        for (Match m : legacy) {
-            List<Prediction> preds = predictionRepository.findByMatchId(m.getId());
-            if (!preds.isEmpty()) {
-                predictionRepository.deleteAll(preds);
-            }
-        }
-        repository.deleteAll(legacy);
+        // Przypisanie meczow do turnieju i przeliczenie punktow robi TournamentBootstrap (@Order(2)).
     }
 
     private void seedGroupStage() {

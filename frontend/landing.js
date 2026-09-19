@@ -11,31 +11,26 @@ function api(path, options = {}) {
         if (res.status === 401) {
             localStorage.removeItem("wc_token");
             localStorage.removeItem("wc_user");
+            localStorage.removeItem("wc_admin");
             window.dispatchEvent(new Event("wc-logout"));
         }
         return res;
     });
 }
 
-/* Lista gier/rozgrywek na hubie - kolejne kafelki dodawaj tutaj */
-const GAMES = [
-    {
-        id: "worldcup",
-        title: "Mistrzostwa Świata 2026",
-        description: "Typuj wyniki meczów mundialu, wybierz mistrza i walcz o puchar w rankingu ze znajomymi.",
-        href: "/worldcup/",
-        image: "worldcup/mundial_trophy.png",
-        badge: "Dostępne",
-        available: true,
-    },
-    {
-        id: "coming-soon",
-        title: "Kolejne rozgrywki",
-        description: "Nowe konkursy i typowania pojawią się niebawem. Śledź ParlayHub!",
-        badge: "Wkrótce",
-        available: false,
-    },
-];
+
+// Dopelniacz po liczbie: "z 1 meczu", "z 5 meczow"
+function meczeWordGen(n) {
+    return n === 1 ? "meczu" : "meczów";
+}
+
+// Polska odmiana slowa "mecz": 1 mecz, 2-4 mecze, 5+ meczow
+function meczeWord(n) {
+    if (n === 1) return "mecz";
+    const ten = n % 10, hundred = n % 100;
+    if (ten >= 2 && ten <= 4 && (hundred < 12 || hundred > 14)) return "mecze";
+    return "meczów";
+}
 
 function Logo({ size = 40 }) {
     return (
@@ -59,10 +54,10 @@ function Wordmark() {
 // ---- Polka z trofeami ----
 // Kazde trofeum dopasowuje wygrane turnieje po slowie kluczowym w nazwie
 const TROPHIES = [
-    { id: "mundial", name: "Mistrzostwa Świata", image: "worldcup/mundial_trophy.png", match: /mistrzostwa świata|mundial/i },
-    { id: "euro", name: "Euro", image: "worldcup/euro_trophy.png", match: /euro/i },
-    { id: "nations", name: "Liga Narodów", image: "worldcup/nations_league_trophy.png", match: /liga narodów|nations/i },
-    { id: "club", name: "Klubowe MŚ", image: "worldcup/club_world_club_trophy.png", match: /klubowe|club/i },
+    { id: "mundial", name: "Mistrzostwa Świata", image: "worldcup/mundial_trophy.png", match: /mistrzostwa świata|mundial/i, teamKind: "NATIONAL" },
+    { id: "euro", name: "Euro", image: "worldcup/euro_trophy.png", match: /euro/i, teamKind: "NATIONAL" },
+    { id: "nations", name: "Liga Narodów", image: "worldcup/nations_league_trophy.png", match: /liga narodów|nations/i, teamKind: "NATIONAL" },
+    { id: "club", name: "Klubowe MŚ", image: "worldcup/club_world_club_trophy.png", match: /klubowe|club/i, teamKind: "CLUB" },
 ];
 
 // Medal SVG za 2. (srebro) lub 3. (braz) miejsce
@@ -297,8 +292,10 @@ function GameTile({ game }) {
     if (!game.available) {
         return (
             <div className="tile tile-soon">
-                <div className="tile-media tile-media-soon">
-                    <span className="soon-mark">?</span>
+                <div className={"tile-media" + (game.image ? "" : " tile-media-soon")}>
+                    {game.image
+                        ? <img src={game.image} alt="" loading="lazy"/>
+                        : <span className="soon-mark">?</span>}
                 </div>
                 <div className="tile-body">
                     <span className="badge badge-soon">{game.badge}</span>
@@ -310,8 +307,10 @@ function GameTile({ game }) {
     }
     return (
         <a className="tile tile-active" href={game.href}>
-            <div className="tile-media">
-                <img src={game.image} alt="" loading="lazy"/>
+            <div className={"tile-media" + (game.image ? "" : " tile-media-soon")}>
+                {game.image
+                    ? <img src={game.image} alt="" loading="lazy"/>
+                    : <span className="soon-mark">{game.title.charAt(0).toUpperCase()}</span>}
             </div>
             <div className="tile-body">
                 <span className="badge">{game.badge}</span>
@@ -323,12 +322,155 @@ function GameTile({ game }) {
     );
 }
 
-function GamesGrid() {
+// Trofeum dobierane po nazwie rozgrywek; brak dopasowania = kafelek z inicjalem
+function trophyImageFor(name) {
+    const found = TROPHIES.find((t) => t.match.test(name));
+    return found ? found.image : null;
+}
+
+// Opis kafelka: postep rozgrywek zamiast wpisanego na sztywno zdania
+function tileDescription(t) {
+    if (t.matchCount === 0) {
+        return "Terminarz jeszcze nieustalony — zajrzyj tu za chwilę.";
+    }
+    if (t.finished) {
+        return `Rozgrywki zakończone — ${t.matchCount} ${meczeWord(t.matchCount)} za nami. Zobacz końcowy ranking.`;
+    }
+    if (t.playedCount === 0) {
+        return `${t.matchCount} ${meczeWord(t.matchCount)} do obstawienia. Typuj, zanim się zaczną.`;
+    }
+    return `Rozegrano ${t.playedCount} z ${t.matchCount} ${meczeWordGen(t.matchCount)}. Sprawdź, jak Ci idzie.`;
+}
+
+// Wpisuje bledy z odpowiedzi Springa (pole "message"), tak jak panel admina w worldcup/admin.js
+async function adminError(res, fallback) {
+    try {
+        const body = await res.json();
+        return body.message || body.error || fallback;
+    } catch (_) {
+        return fallback;
+    }
+}
+
+// Kafelek "+ Nowe rozgrywki" - tylko dla admina. Typ z listy (jeden z 4 przewidzianych
+// pucharow) sam dobiera trofeum i rodzaj druzyn, admin dopisuje tylko rok/edycje.
+function AddTournamentTile({ onCreated }) {
+    const [open, setOpen] = useState(false);
+    const [typeId, setTypeId] = useState(TROPHIES[0].id);
+    const [edition, setEdition] = useState(String(new Date().getFullYear()));
+    const [championEnabled, setChampionEnabled] = useState(true);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+
+    const type = TROPHIES.find((t) => t.id === typeId);
+    const name = `${type.name} ${edition}`.trim();
+    const slug = `${type.id}${edition}`.trim().toLowerCase();
+
+    async function submit(e) {
+        e.preventDefault();
+        setError("");
+        setBusy(true);
+        const res = await api(`${API}/admin/tournaments`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, name, teamKind: type.teamKind, championEnabled }),
+        });
+        setBusy(false);
+        if (!res.ok) {
+            setError(await adminError(res, "Nie udało się założyć rozgrywek"));
+            return;
+        }
+        setOpen(false);
+        setEdition(String(new Date().getFullYear()));
+        onCreated();
+    }
+
+    if (!open) {
+        return (
+            <button type="button" className="tile tile-add" onClick={() => setOpen(true)}>
+                <span className="tile-add-mark">＋</span>
+                <span className="tile-add-label">Nowe rozgrywki</span>
+            </button>
+        );
+    }
+
+    return (
+        <form className="tile tile-add-form" onSubmit={submit}>
+            <label>
+                Puchar
+                <select value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+                    {TROPHIES.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+            </label>
+            <label>
+                Edycja / rok
+                <input value={edition} placeholder="np. 2028"
+                       onChange={(e) => setEdition(e.target.value)} />
+            </label>
+            <label className="tile-add-check">
+                <input type="checkbox" checked={championEnabled}
+                       onChange={(e) => setChampionEnabled(e.target.checked)} />
+                Typowanie zwycięzcy
+            </label>
+            <p className="tile-add-preview">{name} <span className="tile-add-slug">/{slug}</span></p>
+            {error && <div className="form-error">{error}</div>}
+            <div className="tile-add-actions">
+                <button className="btn-primary" type="submit" disabled={busy}>
+                    {busy ? "Zakładanie…" : "Załóż"}
+                </button>
+                <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>Anuluj</button>
+            </div>
+        </form>
+    );
+}
+
+function GamesGrid({ isAdmin }) {
+    const [tournaments, setTournaments] = useState(null);
+
+    function refresh() {
+        api(`${API}/tournaments`).then((res) => {
+            if (!res.ok) return setTournaments([]);
+            res.json().then(setTournaments);
+        });
+    }
+
+    useEffect(refresh, []);
+
+    if (tournaments === null) {
+        return (
+            <section className="games">
+                <h3 className="games-heading">Rozgrywki</h3>
+                <p className="games-loading">Wczytywanie rozgrywek…</p>
+            </section>
+        );
+    }
+
+    const tiles = tournaments.map((t) => ({
+        id: t.slug,
+        title: t.name,
+        description: tileDescription(t),
+        href: `/worldcup/?t=${encodeURIComponent(t.slug)}`,
+        image: trophyImageFor(t.name),
+        badge: t.finished ? "Zakończone" : (t.matchCount > 0 ? "Dostępne" : "W przygotowaniu"),
+        available: true,
+    }));
+
+    if (tiles.length === 0 && !isAdmin) {
+        tiles.push({
+            id: "coming-soon",
+            title: "Kolejne rozgrywki",
+            description: "Nowe konkursy i typowania pojawią się niebawem. Śledź ParlayHub!",
+            badge: "Wkrótce",
+            available: false,
+        });
+    }
+
     return (
         <section className="games">
             <h3 className="games-heading">Rozgrywki</h3>
             <div className="games-grid">
-                {GAMES.map(g => <GameTile key={g.id} game={g}/>)}
+                {tiles.map((g) => <GameTile key={g.id} game={g}/>)}
+                {isAdmin && <AddTournamentTile onCreated={refresh}/>}
             </div>
         </section>
     );
@@ -344,12 +486,13 @@ function Footer() {
 
 // ---- Hub (dla zalogowanego uzytkownika) ----
 function Hub({ user, onLogout }) {
+    const isAdmin = localStorage.getItem("wc_admin") === "true";
     return (
         <div className="hub">
             <Header user={user} onLogout={onLogout}/>
             <main>
                 <Hero/>
-                <GamesGrid/>
+                <GamesGrid isAdmin={isAdmin}/>
             </main>
             <Footer/>
         </div>
@@ -475,6 +618,7 @@ function Login({ onLogin }) {
         const data = await res.json();
         localStorage.setItem("wc_token", data.token);
         localStorage.setItem("wc_user", data.username);
+        localStorage.setItem("wc_admin", String(!!data.admin));
         onLogin(data.username);
     }
 
@@ -593,6 +737,7 @@ function Root() {
     function logout() {
         localStorage.removeItem("wc_token");
         localStorage.removeItem("wc_user");
+        localStorage.removeItem("wc_admin");
         setUser(null);
     }
 

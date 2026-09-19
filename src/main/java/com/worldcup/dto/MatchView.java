@@ -16,8 +16,10 @@ public class MatchView {
     private final String kickoffUtc;
     private final String team1Name;
     private final String team1Code;
+    private final String team1Crest;   // tylko kluby; reprezentacje maja flage z kodu ISO
     private final String team2Name;
     private final String team2Code;
+    private final String team2Crest;
     private final Integer score1;
     private final Integer score2;
     private final boolean played;
@@ -29,14 +31,20 @@ public class MatchView {
     private final String actualAdvancing;  // kod ISO druzyny, ktora faktycznie awansowala
 
     public MatchView(Match m, Prediction p) {
+        this(m, p, java.util.Map.of());
+    }
+
+    public MatchView(Match m, Prediction p, java.util.Map<String, String> crestsByCode) {
         this.id = m.getId();
         this.groupName = m.getGroupName();
         this.date = m.getDate();
         this.kickoffUtc = m.getKickoffUtc();
         this.team1Name = m.getTeam1Name();
         this.team1Code = m.getTeam1Code();
+        this.team1Crest = crestsByCode.get(m.getTeam1Code());
         this.team2Name = m.getTeam2Name();
         this.team2Code = m.getTeam2Code();
+        this.team2Crest = crestsByCode.get(m.getTeam2Code());
         this.actualScore1 = m.getActualScore1();
         this.actualScore2 = m.getActualScore2();
         this.roundName = m.getRoundName();
@@ -104,12 +112,20 @@ public class MatchView {
         return team1Code;
     }
 
+    public String getTeam1Crest() {
+        return team1Crest;
+    }
+
     public String getTeam2Name() {
         return team2Name;
     }
 
     public String getTeam2Code() {
         return team2Code;
+    }
+
+    public String getTeam2Crest() {
+        return team2Crest;
     }
 
     public Integer getScore1() {
