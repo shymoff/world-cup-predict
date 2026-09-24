@@ -288,7 +288,23 @@ function DayCard({ date, matches, onSaved }) {
 // ---- Ranking wszystkich zarejestrowanych uzytkownikow ----
 const MEDALE = ["🥇", "🥈", "🥉"];
 
-function Leaderboard({ me }) {
+// Puchar za 1. miejsce dobierany po nazwie rozgrywek (te same reguly co polka z trofeami na
+// stronie glownej, landing.js). Brak dopasowania = zwykly zloty medal.
+const TROPHY_IMAGES = [
+    { match: /mistrzostwa świata|mundial/i, image: "mundial_trophy.png" },
+    { match: /euro/i, image: "euro_trophy.png" },
+    { match: /liga narodów|nations/i, image: "nations_league_trophy.png" },
+    { match: /klubowe|club/i, image: "club_world_club_trophy.png" },
+];
+
+function trophyImageFor(tournamentName) {
+    const found = TROPHY_IMAGES.find((t) => t.match.test(tournamentName));
+    return found ? found.image : null;
+}
+
+function Leaderboard({ me, tournamentName }) {
+    const trophyImage = trophyImageFor(tournamentName);
+
     const [entries, setEntries] = useState(null);
 
     useEffect(() => {
@@ -322,8 +338,8 @@ function Leaderboard({ me }) {
                                 title={`Zobacz gablotę: ${e.username}`}
                                 onClick={() => { window.location.href = `/account?user=${encodeURIComponent(e.username)}`; }}>
                                 <td className="lb-rank">
-                                    {i === 0 ? (
-                                        <img src="mundial_trophy.png" alt="1. miejsce" className="trophy-icon" />
+                                    {i === 0 && trophyImage ? (
+                                        <img src={trophyImage} alt="1. miejsce" className="trophy-icon" />
                                     ) : i < 3 ? MEDALE[i] : i + 1}
                                 </td>
                                 <td className="lb-name">
@@ -858,7 +874,7 @@ function App({ user, onLogout }) {
                 {tab === "admin" && isAdmin ? (
                     <AdminPanel />
                 ) : tab === "leaderboard" ? (
-                    <Leaderboard me={user} />
+                    <Leaderboard me={user} tournamentName={tournamentName} />
                 ) : tab === "knockout" ? (
                     <KnockoutStage matches={koMatches} onSaved={loadAll} />
                 ) : (
