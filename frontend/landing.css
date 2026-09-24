@@ -762,16 +762,6 @@ h1, h2, h3 {
     text-align: left;
 }
 
-/* ---------- Stopka ---------- */
-
-.hub-footer {
-    text-align: center;
-    padding: 28px 0 32px;
-    color: var(--muted);
-    font-size: 13px;
-    border-top: 1px solid var(--border);
-}
-
 /* ---------- Mobile ---------- */
 
 @media (max-width: 560px) {

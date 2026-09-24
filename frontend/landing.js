@@ -476,14 +476,6 @@ function GamesGrid({ isAdmin }) {
     );
 }
 
-function Footer() {
-    return (
-        <footer className="hub-footer">
-            <span>© 2026 ParlayHub</span>
-        </footer>
-    );
-}
-
 // ---- Hub (dla zalogowanego uzytkownika) ----
 function Hub({ user, onLogout }) {
     const isAdmin = localStorage.getItem("wc_admin") === "true";
@@ -494,7 +486,6 @@ function Hub({ user, onLogout }) {
                 <Hero/>
                 <GamesGrid isAdmin={isAdmin}/>
             </main>
-            <Footer/>
         </div>
     );
 }
@@ -510,6 +501,19 @@ function AccountPage({ user, onLogout }) {
     const [podium, setPodium] = useState(null);          // podium innego uzytkownika
     const [notFound, setNotFound] = useState(false);
     const [tab, setTab] = useState("stats"); // "stats" | "password"
+
+    // Wraca na poprzednia strone ParlayHub (np. ranking, z ktorego weszlismy na konto).
+    // Gdy wejscie bylo z zewnatrz albo z zakladki bez historii, zostaje zwykly link z href.
+    function goBack(e) {
+        let sameSite = false;
+        try {
+            sameSite = !!document.referrer && new URL(document.referrer).origin === window.location.origin;
+        } catch (_) { /* niepoprawny referrer - traktujemy jak brak */ }
+        if (sameSite && window.history.length > 1) {
+            e.preventDefault();
+            window.history.back();
+        }
+    }
 
     useEffect(() => {
         if (isOwn) {
@@ -530,8 +534,8 @@ function AccountPage({ user, onLogout }) {
         <div className="hub">
             <Header user={user} onLogout={onLogout}/>
             <main className="account-main">
-                <a className="back-link" href={isOwn ? "/" : "/worldcup/"}>
-                    {isOwn ? "← Wróć na stronę główną" : "← Wróć"}
+                <a className="back-link" href={isOwn ? "/" : "/worldcup/"} onClick={goBack}>
+                    ← Wróć
                 </a>
 
                 <div className="profile-head account-head">
@@ -566,7 +570,6 @@ function AccountPage({ user, onLogout }) {
                     </React.Fragment>
                 )}
             </main>
-            <Footer/>
         </div>
     );
 }

@@ -880,12 +880,6 @@ function App({ user, onLogout }) {
                 )}
             </div>
 
-            <footer>
-                <a href="/">← ParlayHub</a> •
-                Terminarz wg oficjalnego losowania (5.12.2025) •
-                Flagi: <a href="https://flagcdn.com" target="_blank">flagcdn.com</a> •
-                Spring Boot + React
-            </footer>
         </div>
     );
 }
