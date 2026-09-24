@@ -38,7 +38,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
@@ -79,11 +78,14 @@ public class MatchController {
     public List<TournamentSummary> getTournaments(
             @RequestHeader(value = "Authorization", required = false) String auth) {
         requireUser(auth);
+        Map<Long, MatchRepository.TournamentMatchCount> counts = new HashMap<>();
+        for (MatchRepository.TournamentMatchCount c : matchRepository.countByTournament()) {
+            counts.put(c.getTournamentId(), c);
+        }
         return tournamentRepository.findAll().stream()
                 .map(t -> {
-                    List<Match> matches = matchRepository.findByTournamentIdOrderByKickoffUtcAscIdAsc(t.getId());
-                    long played = matches.stream().filter(m -> m.getActualScore1() != null).count();
-                    return new TournamentSummary(t, matches.size(), played);
+                    MatchRepository.TournamentMatchCount c = counts.get(t.getId());
+                    return new TournamentSummary(t, c == null ? 0 : c.getTotal(), c == null ? 0 : c.getPlayed());
                 })
                 .sorted(Comparator.comparing(TournamentSummary::name, String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -190,9 +192,7 @@ public class MatchController {
             @RequestParam(value = "tournament", required = false) String slug) {
         requireUser(auth);
         Tournament tournament = tournament(slug);
-        Set<String> active = rankingService.activeUsernames(tournament.getId());
-        return rankingService.standings(tournament.getId()).stream()
-                .filter(s -> active.contains(s.username().toLowerCase()))
+        return rankingService.leaderboard(tournament.getId()).stream()
                 .map(LeaderboardEntry::new)
                 .toList();
     }

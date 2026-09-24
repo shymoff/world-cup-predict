@@ -4,6 +4,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
 /**
  * Pojedynczy mecz fazy grupowej MS 2026 (wspolny dla wszystkich uzytkownikow).
@@ -11,6 +13,7 @@ import jakarta.persistence.Id;
  * Rzeczywisty wynik (po zakonczeniu meczu) trzymany jest w polach actualScore1/2.
  */
 @Entity
+@Table(indexes = @Index(name = "idx_match_tournament", columnList = "tournamentId"))
 public class Match {
 
     @Id

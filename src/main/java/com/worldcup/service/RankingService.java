@@ -12,12 +12,14 @@ import com.worldcup.repository.TournamentRepository;
 import com.worldcup.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Punkty, statystyki i kolejnosc rankingu - liczone od zera z meczow i typow.
@@ -84,16 +86,134 @@ public class RankingService {
         }
     }
 
-    /** Ranking rozgrywek (albo wszystkich lacznie, gdy tournamentId == null), z miejscami. */
-    public List<Standing> standings(Long tournamentId) {
-        Map<String, Integer> points = pointsByUser(tournamentId);
-        Map<String, Stats> stats = statsByUser(tournamentId);
+    /** Pozycje w rankingu ogolnym oraz w wybranych rozgrywkach - z jednego wczytania danych. */
+    public record Overview(List<Tournament> tournaments, List<Standing> overall,
+                           List<TournamentStanding> byTournament) {
+    }
 
+    public record TournamentStanding(Tournament tournament, List<Standing> standings) {
+    }
+
+    /** Wszystkie dane potrzebne do rankingu, wczytane raz (piec zapytan, niezaleznie od liczby rozgrywek). */
+    private record Data(List<User> users, List<Match> matches, List<Prediction> predictions,
+                        List<Tournament> tournaments, List<ChampionPick> picks) {
+    }
+
+    /** Punkty, statystyki i lista typujacych w danym zasiegu (klucz: username lowercase). */
+    private record Scoreboard(Map<String, Integer> points, Map<String, Stats> stats, Set<String> active) {
+    }
+
+    private Data load() {
+        return new Data(userRepository.findAll(), matchRepository.findAll(), predictionRepository.findAll(),
+                tournamentRepository.findAll(), championPickRepository.findAll());
+    }
+
+    /**
+     * Ranking ogolny (wszystkie rozgrywki lacznie) oraz osobne rankingi tych rozgrywek,
+     * ktore spelniaja {@code withStandings} - wszystko z jednego wczytania danych,
+     * zamiast osobnego przeliczenia z bazy dla kazdych rozgrywek.
+     */
+    public Overview overview(Predicate<Tournament> withStandings) {
+        Data data = load();
+        List<Standing> overall = rank(data, scoreboard(data, null));
+        List<TournamentStanding> byTournament = new ArrayList<>();
+        for (Tournament tournament : data.tournaments()) {
+            if (withStandings.test(tournament)) {
+                byTournament.add(new TournamentStanding(tournament,
+                        rank(data, scoreboard(data, tournament.getId()))));
+            }
+        }
+        return new Overview(data.tournaments(), overall, byTournament);
+    }
+
+    /** Ranking rozgrywek - tylko uzytkownicy, ktorzy w tych rozgrywkach cokolwiek typowali. */
+    public List<Standing> leaderboard(Long tournamentId) {
+        Data data = load();
+        Scoreboard board = scoreboard(data, tournamentId);
+        return rank(data, board).stream()
+                .filter(s -> board.active().contains(s.username().toLowerCase()))
+                .toList();
+    }
+
+    /**
+     * Punkty za typy meczowe powiekszone o punkty za trafiony typ zwyciezcy rozgrywek
+     * (klucz: username lowercase).
+     */
+    public Map<String, Integer> pointsByUser(Long tournamentId) {
+        return scoreboard(load(), tournamentId).points();
+    }
+
+    /**
+     * Liczy punkty i statystyki jednym przejsciem po typach.
+     * "settled" = typy na mecze z uzupelnionym wynikiem; "hits" = typy punktujace
+     * (trafiony kierunek/awans), "exact" = dokladnie trafiony wynik.
+     */
+    private Scoreboard scoreboard(Data data, Long tournamentId) {
+        Map<Long, Match> matches = new HashMap<>();
+        for (Match m : data.matches()) {
+            if (tournamentId == null || tournamentId.equals(m.getTournamentId())) {
+                matches.put(m.getId(), m);
+            }
+        }
+
+        Map<String, Integer> points = new HashMap<>();
+        Map<String, int[]> acc = new HashMap<>(); // [made, settled, hits, exact] per uzytkownik
+        Set<String> active = new HashSet<>();
+
+        for (Prediction p : data.predictions()) {
+            Match m = matches.get(p.getMatchId());
+            if (m == null) {
+                continue; // typ z innych rozgrywek
+            }
+            String key = p.getUsername().toLowerCase();
+            active.add(key);
+            if (p.getScore1() == null || p.getScore2() == null) {
+                continue;
+            }
+            int[] a = acc.computeIfAbsent(key, k -> new int[4]);
+            a[0]++; // made
+            if (m.getActualScore1() == null || m.getActualScore2() == null) {
+                continue;
+            }
+            a[1]++; // settled
+            int earned = earnedFor(m, p);
+            if (earned != 0) {
+                points.merge(key, earned, Integer::sum);
+            }
+            if (earned > 0) {
+                a[2]++; // hit (punktujacy typ)
+            }
+            if (p.getScore1().equals(m.getActualScore1()) && p.getScore2().equals(m.getActualScore2())) {
+                a[3]++; // exact
+            }
+        }
+
+        Map<Long, Tournament> tournaments = new HashMap<>();
+        for (Tournament t : data.tournaments()) {
+            tournaments.put(t.getId(), t);
+        }
+        for (ChampionPick pick : data.picks()) {
+            Tournament t = tournaments.get(pick.getTournamentId());
+            if (t == null || (tournamentId != null && !tournamentId.equals(t.getId()))) {
+                continue;
+            }
+            if (t.getChampionCode() != null && t.getChampionCode().equals(pick.getTeamCode())) {
+                points.merge(pick.getUsername().toLowerCase(), ScoringService.CHAMPION_POINTS, Integer::sum);
+            }
+        }
+
+        Map<String, Stats> stats = new HashMap<>();
+        acc.forEach((user, a) -> stats.put(user, new Stats(a[0], a[1], a[2], a[3])));
+        return new Scoreboard(points, stats, active);
+    }
+
+    /** Ranking z miejscami: punkty, skutecznosc, dokladne wyniki, na koncu nazwa. */
+    private List<Standing> rank(Data data, Scoreboard board) {
         record Row(User user, RankKey key) {
         }
 
-        List<Row> rows = userRepository.findAll().stream()
-                .map(u -> new Row(u, keyOf(u, points, stats)))
+        List<Row> rows = data.users().stream()
+                .map(u -> new Row(u, keyOf(u, board.points(), board.stats())))
                 .sorted(Comparator.comparing(Row::key).reversed()
                         .thenComparing(r -> r.user().getUsername(), String.CASE_INSENSITIVE_ORDER))
                 .toList();
@@ -104,90 +224,9 @@ public class RankingService {
                 .map(r -> new Standing(
                         r.user().getUsername(),
                         r.key().points(),
-                        statsFor(stats, r.user()),
+                        statsFor(board.stats(), r.user()),
                         distinctKeys.indexOf(r.key()) + 1))
                 .toList();
-    }
-
-    /** Pozycja jednego uzytkownika; null, gdy konta nie ma w rankingu. */
-    public Standing standingOf(String username, Long tournamentId) {
-        return standings(tournamentId).stream()
-                .filter(s -> s.username().equalsIgnoreCase(username))
-                .findFirst()
-                .orElse(null);
-    }
-
-    /**
-     * Punkty za typy meczowe powiekszone o punkty za trafiony typ zwyciezcy rozgrywek
-     * (klucz: username lowercase).
-     */
-    public Map<String, Integer> pointsByUser(Long tournamentId) {
-        Map<Long, Match> matches = matchesById(tournamentId);
-
-        Map<String, Integer> points = new HashMap<>();
-        for (Prediction p : predictionRepository.findAll()) {
-            if (p.getScore1() == null || p.getScore2() == null) {
-                continue;
-            }
-            Match match = matches.get(p.getMatchId());
-            if (match == null || match.getActualScore1() == null || match.getActualScore2() == null) {
-                continue;
-            }
-            int earned = earnedFor(match, p);
-            if (earned != 0) {
-                points.merge(p.getUsername().toLowerCase(), earned, Integer::sum);
-            }
-        }
-
-        for (Tournament tournament : tournamentsInScope(tournamentId)) {
-            String champion = tournament.getChampionCode();
-            if (champion == null) {
-                continue;
-            }
-            for (ChampionPick pick : championPickRepository.findByTournamentId(tournament.getId())) {
-                if (champion.equals(pick.getTeamCode())) {
-                    points.merge(pick.getUsername().toLowerCase(), ScoringService.CHAMPION_POINTS, Integer::sum);
-                }
-            }
-        }
-        return points;
-    }
-
-    /**
-     * Statystyki wszystkich uzytkownikow (klucz: username lowercase).
-     * "settled" = typy na mecze z uzupelnionym wynikiem; "hits" = typy punktujace
-     * (trafiony kierunek/awans), "exact" = dokladnie trafiony wynik.
-     */
-    public Map<String, Stats> statsByUser(Long tournamentId) {
-        Map<Long, Match> matches = matchesById(tournamentId);
-
-        // [made, settled, hits, exact] per uzytkownik
-        Map<String, int[]> acc = new HashMap<>();
-        for (Prediction p : predictionRepository.findAll()) {
-            if (p.getScore1() == null || p.getScore2() == null) {
-                continue;
-            }
-            Match m = matches.get(p.getMatchId());
-            if (m == null) {
-                continue; // typ z innych rozgrywek
-            }
-            int[] a = acc.computeIfAbsent(p.getUsername().toLowerCase(), k -> new int[4]);
-            a[0]++; // made
-            if (m.getActualScore1() == null || m.getActualScore2() == null) {
-                continue;
-            }
-            a[1]++; // settled
-            if (earnedFor(m, p) > 0) {
-                a[2]++; // hit (punktujacy typ)
-            }
-            if (p.getScore1().equals(m.getActualScore1()) && p.getScore2().equals(m.getActualScore2())) {
-                a[3]++; // exact
-            }
-        }
-
-        Map<String, Stats> stats = new HashMap<>();
-        acc.forEach((user, a) -> stats.put(user, new Stats(a[0], a[1], a[2], a[3])));
-        return stats;
     }
 
     public static Stats statsFor(Map<String, Stats> stats, User user) {
@@ -218,36 +257,5 @@ public class RankingService {
         Stats s = statsFor(stats, user);
         return new RankKey(points.getOrDefault(user.getUsername().toLowerCase(), 0),
                 s.hitRatePercent(), s.exact());
-    }
-
-    /** Mecze w zasiegu: jednych rozgrywek albo wszystkich (tournamentId == null). */
-    private Map<Long, Match> matchesById(Long tournamentId) {
-        List<Match> list = (tournamentId == null)
-                ? matchRepository.findAll()
-                : matchRepository.findByTournamentIdOrderByKickoffUtcAscIdAsc(tournamentId);
-        Map<Long, Match> byId = new HashMap<>();
-        for (Match m : list) {
-            byId.put(m.getId(), m);
-        }
-        return byId;
-    }
-
-    private List<Tournament> tournamentsInScope(Long tournamentId) {
-        if (tournamentId == null) {
-            return tournamentRepository.findAll();
-        }
-        return tournamentRepository.findById(tournamentId).map(List::of).orElseGet(List::of);
-    }
-
-    /** Nazwy uzytkownikow, ktorzy w danych rozgrywkach cokolwiek typowali. */
-    public Set<String> activeUsernames(Long tournamentId) {
-        Map<Long, Match> matches = matchesById(tournamentId);
-        Set<String> names = new HashSet<>();
-        for (Prediction p : predictionRepository.findAll()) {
-            if (matches.containsKey(p.getMatchId())) {
-                names.add(p.getUsername().toLowerCase());
-            }
-        }
-        return names;
     }
 }

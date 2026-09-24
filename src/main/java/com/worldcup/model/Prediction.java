@@ -4,6 +4,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -12,7 +13,8 @@ import jakarta.persistence.UniqueConstraint;
  * Para (username, matchId) jest unikalna - jeden typ na uzytkownika i mecz.
  */
 @Entity
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"username", "matchId"}))
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"username", "matchId"}),
+       indexes = @Index(name = "idx_prediction_match", columnList = "matchId"))
 public class Prediction {
 
     @Id

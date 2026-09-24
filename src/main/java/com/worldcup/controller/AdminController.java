@@ -41,7 +41,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Panel administratora: zakladanie rozgrywek, druzyn i meczow oraz wpisywanie wynikow.
@@ -92,7 +94,18 @@ public class AdminController {
     @GetMapping("/tournaments")
     public List<TournamentView> listTournaments(@RequestHeader(value = "Authorization", required = false) String auth) {
         requireAdmin(auth);
-        return tournamentRepository.findAll().stream().map(this::toView).toList();
+        Map<Long, Long> matchCounts = new HashMap<>();
+        for (MatchRepository.TournamentMatchCount c : matchRepository.countByTournament()) {
+            matchCounts.put(c.getTournamentId(), c.getTotal());
+        }
+        Map<Long, Long> teamCounts = new HashMap<>();
+        for (TeamRepository.TournamentTeamCount c : teamRepository.countByTournament()) {
+            teamCounts.put(c.getTournamentId(), c.getTotal());
+        }
+        return tournamentRepository.findAll().stream()
+                .map(t -> new TournamentView(t, matchCounts.getOrDefault(t.getId(), 0L),
+                        teamCounts.getOrDefault(t.getId(), 0L)))
+                .toList();
     }
 
     @PostMapping("/tournaments")
@@ -248,8 +261,12 @@ public class AdminController {
                                             @PathVariable Long id) {
         requireAdmin(auth);
         tournament(id);
+        Map<Long, Long> predictionCounts = new HashMap<>();
+        for (PredictionRepository.MatchPredictionCount c : predictionRepository.countByMatchInTournament(id)) {
+            predictionCounts.put(c.getMatchId(), c.getTotal());
+        }
         return matchRepository.findByTournamentIdOrderByKickoffUtcAscIdAsc(id).stream()
-                .map(m -> new AdminMatchView(m, predictionRepository.findByMatchId(m.getId()).size()))
+                .map(m -> new AdminMatchView(m, predictionCounts.getOrDefault(m.getId(), 0L)))
                 .toList();
     }
 
@@ -277,7 +294,7 @@ public class AdminController {
         applyMatchFields(match, request, match.getTournamentId());
         matchRepository.save(match);
         resultService.recompute(); // zmiana druzyn zmienia, komu nalezy sie punkt za awans
-        return new AdminMatchView(match, predictionRepository.findByMatchId(matchId).size());
+        return new AdminMatchView(match, predictionRepository.countByMatchId(matchId));
     }
 
     @DeleteMapping("/matches/{matchId}")
@@ -336,7 +353,7 @@ public class AdminController {
         matchRepository.save(match);
 
         resultService.recompute();
-        return new AdminMatchView(match, predictionRepository.findByMatchId(matchId).size());
+        return new AdminMatchView(match, predictionRepository.countByMatchId(matchId));
     }
 
     @DeleteMapping("/matches/{matchId}/result")
@@ -351,7 +368,7 @@ public class AdminController {
         matchRepository.save(match);
 
         resultService.recompute();
-        return new AdminMatchView(match, predictionRepository.findByMatchId(matchId).size());
+        return new AdminMatchView(match, predictionRepository.countByMatchId(matchId));
     }
 
     /** Awaryjne przeliczenie punktow - przydaje sie po recznej zmianie w bazie. */
@@ -429,7 +446,7 @@ public class AdminController {
 
     private TournamentView toView(Tournament t) {
         return new TournamentView(t,
-                matchRepository.findByTournamentIdOrderByKickoffUtcAscIdAsc(t.getId()).size(),
+                matchRepository.countByTournamentId(t.getId()),
                 teamRepository.countByTournamentId(t.getId()));
     }
 
