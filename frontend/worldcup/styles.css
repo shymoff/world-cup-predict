@@ -1823,6 +1823,38 @@ footer a:hover {
     color: var(--text) !important;
 }
 
+.admin-user {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+}
+
+.admin-user-reset {
+    margin-left: auto;
+}
+
+.admin-reset {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    background: var(--panel);
+}
+
+.admin-reset-pass {
+    margin-left: 8px;
+    padding: 3px 10px;
+    border-radius: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    font-size: 16px;
+    letter-spacing: .06em;
+    user-select: all;
+}
+
 .admin-match-edit {
     display: flex;
     flex-wrap: wrap;

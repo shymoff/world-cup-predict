@@ -423,6 +423,87 @@ function AdminMatchEdit({ match, teams, onChanged, onError, onInfo, onClose }) {
     );
 }
 
+// ---- Uzytkownicy ----
+// Reset hasla: serwer ustawia losowe haslo tymczasowe i zwraca je jednorazowo. Admin przekazuje
+// je uzytkownikowi (np. na komunikatorze), a ten zmienia je sam w profilu.
+
+function AdminUsers({ onError, onInfo }) {
+    const [users, setUsers] = useState(null);
+    const [filter, setFilter] = useState("");
+    const [reset, setReset] = useState(null); // { username, temporaryPassword }
+    const [busyId, setBusyId] = useState(null);
+
+    useEffect(() => {
+        api(`${API}/admin/users`)
+            .then(async (res) => {
+                if (!res.ok) return onError(await adminError(res, "Nie udało się wczytać użytkowników"));
+                setUsers(await res.json());
+            });
+    }, []);
+
+    async function resetPassword(user) {
+        if (!window.confirm(`Zresetować hasło użytkownika ${user.username}? Dotychczasowe hasło przestanie działać.`)) return;
+        setBusyId(user.id);
+        const res = await api(`${API}/admin/users/${user.id}/reset-password`, { method: "POST" });
+        setBusyId(null);
+        if (!res.ok) return onError(await adminError(res, "Nie udało się zresetować hasła"));
+        setReset(await res.json());
+    }
+
+    async function copyPassword() {
+        try {
+            await navigator.clipboard.writeText(reset.temporaryPassword);
+            onInfo("Skopiowano hasło");
+        } catch (_) {
+            onError("Nie udało się skopiować — przepisz hasło ręcznie");
+        }
+    }
+
+    if (users === null) return <p className="admin-empty">Wczytywanie…</p>;
+
+    const q = filter.trim().toLowerCase();
+    const visible = q ? users.filter((u) => u.username.toLowerCase().includes(q)) : users;
+
+    return (
+        <div className="admin-section">
+            {reset && (
+                <div className="admin-reset">
+                    <div>
+                        Nowe hasło dla <strong>{reset.username}</strong>:
+                        <code className="admin-reset-pass">{reset.temporaryPassword}</code>
+                    </div>
+                    <p className="admin-hint">
+                        Widać je tylko teraz — po zamknięciu nie da się go odczytać. Przekaż je użytkownikowi,
+                        a on zmieni je w profilu.
+                    </p>
+                    <div className="admin-match-controls">
+                        <button className="admin-btn admin-btn-primary" onClick={copyPassword}>Kopiuj</button>
+                        <button className="admin-btn" onClick={() => setReset(null)}>Zamknij</button>
+                    </div>
+                </div>
+            )}
+
+            <input value={filter} placeholder="Szukaj użytkownika…"
+                   onChange={(e) => setFilter(e.target.value)} />
+
+            {visible.length === 0 ? (
+                <p className="admin-empty">Brak pasujących użytkowników.</p>
+            ) : (
+                visible.map((u) => (
+                    <div className="admin-match admin-user" key={u.id}>
+                        <span className="admin-match-teams">{u.username}</span>
+                        {u.admin && <span className="admin-match-tag">admin</span>}
+                        <button className="admin-btn admin-user-reset" disabled={busyId === u.id}
+                                onClick={() => resetPassword(u)}>
+                            Zresetuj hasło
+                        </button>
+                    </div>
+                ))
+            )}
+        </div>
+    );
+}
+
 // ---- Panel ----
 
 // Panel admina jest dedykowany rozgrywkom z adresu (?t=<slug>, patrz TOURNAMENT w app.js) -
@@ -431,7 +512,7 @@ function AdminPanel() {
     const [tournament, setTournament] = useState(null); // undefined = nie znaleziono
     const [teams, setTeams] = useState([]);
     const [matches, setMatches] = useState([]);
-    const [view, setView] = useState("matches"); // "matches" | "teams"
+    const [view, setView] = useState("matches"); // "matches" | "teams" | "users"
     const [error, setError] = useState("");
     const [info, setInfo] = useState("");
 
@@ -489,16 +570,20 @@ function AdminPanel() {
         <div className="admin-panel">
             <AdminNotice error={error} info={info} />
 
-            {tournament.teamKind === "CLUB" && (
-                <div className="admin-subtabs">
-                    <button className={"chip" + (view === "matches" ? " active" : "")}
-                            onClick={() => setView("matches")}>Mecze ({matches.length})</button>
+            <div className="admin-subtabs">
+                <button className={"chip" + (view === "matches" ? " active" : "")}
+                        onClick={() => setView("matches")}>Mecze ({matches.length})</button>
+                {tournament.teamKind === "CLUB" && (
                     <button className={"chip" + (view === "teams" ? " active" : "")}
                             onClick={() => setView("teams")}>Drużyny ({teams.length})</button>
-                </div>
-            )}
+                )}
+                <button className={"chip" + (view === "users" ? " active" : "")}
+                        onClick={() => setView("users")}>Użytkownicy</button>
+            </div>
 
-            {view === "teams" && tournament.teamKind === "CLUB" ? (
+            {view === "users" ? (
+                <AdminUsers onError={notifyError} onInfo={notifyInfo} />
+            ) : view === "teams" && tournament.teamKind === "CLUB" ? (
                 <AdminTeams tournament={tournament} teams={teams} onChanged={refresh}
                             onError={notifyError} onInfo={notifyInfo} />
             ) : (

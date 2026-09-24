@@ -3,7 +3,9 @@ package com.worldcup.controller;
 import com.worldcup.dto.AdminMatchRequest;
 import com.worldcup.dto.AdminMatchView;
 import com.worldcup.dto.AdminResultRequest;
+import com.worldcup.dto.AdminUserView;
 import com.worldcup.dto.CountryOption;
+import com.worldcup.dto.PasswordResetView;
 import com.worldcup.dto.TeamRequest;
 import com.worldcup.dto.TeamView;
 import com.worldcup.dto.TournamentRequest;
@@ -22,6 +24,8 @@ import com.worldcup.repository.UserRepository;
 import com.worldcup.service.CountryCatalog;
 import com.worldcup.service.JwtService;
 import com.worldcup.service.ResultService;
+import com.worldcup.service.UserService;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -60,6 +64,7 @@ public class AdminController {
     private final PredictionRepository predictionRepository;
     private final UserRepository userRepository;
     private final JwtService jwtService;
+    private final UserService userService;
     private final ResultService resultService;
 
     public AdminController(TournamentRepository tournamentRepository,
@@ -69,6 +74,7 @@ public class AdminController {
                            PredictionRepository predictionRepository,
                            UserRepository userRepository,
                            JwtService jwtService,
+                           UserService userService,
                            ResultService resultService) {
         this.tournamentRepository = tournamentRepository;
         this.teamRepository = teamRepository;
@@ -77,6 +83,7 @@ public class AdminController {
         this.predictionRepository = predictionRepository;
         this.userRepository = userRepository;
         this.jwtService = jwtService;
+        this.userService = userService;
         this.resultService = resultService;
     }
 
@@ -353,6 +360,26 @@ public class AdminController {
         requireAdmin(auth);
         resultService.recompute();
         return ResponseEntity.noContent().build();
+    }
+
+    // ---- Uzytkownicy ----
+
+    @GetMapping("/users")
+    public List<AdminUserView> listUsers(@RequestHeader(value = "Authorization", required = false) String auth) {
+        requireAdmin(auth);
+        return userRepository.findAll(Sort.by("username").ascending()).stream()
+                .map(AdminUserView::new)
+                .toList();
+    }
+
+    /** Ustawia losowe haslo tymczasowe; admin przekazuje je uzytkownikowi, ktory zmienia je w profilu. */
+    @PostMapping("/users/{userId}/reset-password")
+    public PasswordResetView resetPassword(@RequestHeader(value = "Authorization", required = false) String auth,
+                                           @PathVariable Long userId) {
+        requireAdmin(auth);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> notFound("Nie ma takiego użytkownika"));
+        return new PasswordResetView(user.getUsername(), userService.resetPassword(userId));
     }
 
     // ---- Pomocnicze ----

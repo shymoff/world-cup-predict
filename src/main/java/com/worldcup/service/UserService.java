@@ -4,12 +4,19 @@ import com.worldcup.model.User;
 import com.worldcup.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+
 /**
  * Rejestracja i logowanie uzytkownikow (konta przechowywane w bazie).
  * Nazwy uzytkownikow sa unikalne i porownywane bez wzgledu na wielkosc liter.
  */
 @Service
 public class UserService {
+
+    /** Bez znakow latwych do pomylenia (0/O, 1/l/I), bo haslo admin przekazuje dalej recznie. */
+    private static final String TEMP_PASSWORD_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private static final int TEMP_PASSWORD_LENGTH = 10;
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final UserRepository repository;
 
@@ -75,5 +82,27 @@ public class UserService {
 
         user.setPasswordHash(PasswordHasher.hash(newPassword));
         repository.save(user);
+    }
+
+    /**
+     * Reset hasla przez admina: ustawia losowe haslo tymczasowe i zwraca je w jawnej postaci
+     * (jedyny moment, w ktorym da sie je odczytac - w bazie ladu tylko hash).
+     */
+    public String resetPassword(Long userId) {
+        User user = repository.findById(userId)
+                .orElseThrow(() -> new ValidationException("Użytkownik nie istnieje"));
+
+        String temporary = generateTemporaryPassword();
+        user.setPasswordHash(PasswordHasher.hash(temporary));
+        repository.save(user);
+        return temporary;
+    }
+
+    private static String generateTemporaryPassword() {
+        StringBuilder sb = new StringBuilder(TEMP_PASSWORD_LENGTH);
+        for (int i = 0; i < TEMP_PASSWORD_LENGTH; i++) {
+            sb.append(TEMP_PASSWORD_ALPHABET.charAt(RANDOM.nextInt(TEMP_PASSWORD_ALPHABET.length())));
+        }
+        return sb.toString();
     }
 }
