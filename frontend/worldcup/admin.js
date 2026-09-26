@@ -31,6 +31,12 @@ function toIsoUtc(local) {
     return new Date(local).toISOString();
 }
 
+/** Data (RRRR-MM-DD) w czasie lokalnym przegladarki - do porownan z wartoscia <input type="date">. */
+function localDateKey(date) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 function AdminNotice({ error, info }) {
     if (!error && !info) return null;
     return <div className={"admin-notice" + (error ? " admin-notice-error" : "")}>{error || info}</div>;
@@ -504,6 +510,27 @@ function AdminUsers({ onError, onInfo }) {
     );
 }
 
+/** Filtr listy meczow po dniu rozpoczecia: skroty "Dzis"/"Jutro" i reczny wybor daty. */
+function MatchDateFilter({ value, onChange, shown, total }) {
+    const now = new Date();
+    const today = localDateKey(now);
+    const tomorrow = localDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+
+    return (
+        <div className="admin-date-filter">
+            <button className={"chip" + (value === "" ? " active" : "")}
+                    onClick={() => onChange("")}>Wszystkie</button>
+            <button className={"chip" + (value === today ? " active" : "")}
+                    onClick={() => onChange(today)}>Dziś</button>
+            <button className={"chip" + (value === tomorrow ? " active" : "")}
+                    onClick={() => onChange(tomorrow)}>Jutro</button>
+            <input type="date" value={value} aria-label="Data meczu"
+                   onChange={(e) => onChange(e.target.value)} />
+            {value && <span className="admin-hint">Pokazano {shown} z {total}</span>}
+        </div>
+    );
+}
+
 // ---- Panel ----
 
 // Panel admina jest dedykowany rozgrywkom z adresu (?t=<slug>, patrz TOURNAMENT w app.js) -
@@ -513,6 +540,7 @@ function AdminPanel() {
     const [teams, setTeams] = useState([]);
     const [matches, setMatches] = useState([]);
     const [view, setView] = useState("matches"); // "matches" | "teams" | "users"
+    const [dateFilter, setDateFilter] = useState(""); // "" = wszystkie dni, inaczej RRRR-MM-DD
     const [error, setError] = useState("");
     const [info, setInfo] = useState("");
 
@@ -558,6 +586,10 @@ function AdminPanel() {
         setInfo(message);
     }
 
+    const visibleMatches = dateFilter
+        ? matches.filter((m) => localDateKey(new Date(m.kickoffUtc)) === dateFilter)
+        : matches;
+
     if (tournament === null) {
         return <div className="admin-panel"><p className="admin-empty">Wczytywanie…</p></div>;
     }
@@ -591,10 +623,14 @@ function AdminPanel() {
                     <MatchForm tournament={tournament} teams={teams}
                                onCreated={() => { notifyInfo("Mecz dodany"); refresh(); }}
                                onError={notifyError} />
+                    <MatchDateFilter value={dateFilter} onChange={setDateFilter}
+                                     shown={visibleMatches.length} total={matches.length} />
                     {matches.length === 0 ? (
                         <p className="admin-empty">Brak meczów w tych rozgrywkach.</p>
+                    ) : visibleMatches.length === 0 ? (
+                        <p className="admin-empty">Brak meczów w wybranym dniu.</p>
                     ) : (
-                        matches.map((m) => (
+                        visibleMatches.map((m) => (
                             <AdminMatchRow key={m.id} match={m} teams={teams} onChanged={refresh}
                                            onError={notifyError} onInfo={notifyInfo} />
                         ))

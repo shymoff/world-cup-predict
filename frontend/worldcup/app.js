@@ -52,14 +52,12 @@ function formatDate(iso) {
     };
 }
 
-// Godziny startu meczu: czas polski (Europe/Warsaw) + pomocniczo czas wschodni USA (ET).
+// Godzina startu meczu w czasie polskim (Europe/Warsaw).
 // Przegladarka sama uwzglednia strefy i zmiane czasu na podstawie momentu UTC.
 function kickoffInfo(iso, slateDate) {
     const dt = new Date(iso);
     const pl = new Intl.DateTimeFormat("pl-PL",
         { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Warsaw" }).format(dt);
-    const et = new Intl.DateTimeFormat("en-GB",
-        { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" }).format(dt);
     // Jesli w Polsce to juz kolejny dzien wzgledem dnia meczowego (mecz nad ranem) - zaznacz date.
     const plIso = new Intl.DateTimeFormat("en-CA",
         { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Europe/Warsaw" }).format(dt);
@@ -68,7 +66,7 @@ function kickoffInfo(iso, slateDate) {
         const [, mm, dd] = plIso.split("-");
         nextDay = `${dd}.${mm}`;
     }
-    return { pl, et, nextDay };
+    return { pl, nextDay };
 }
 
 // Polska odmiana slowa "mecz": 1 mecz, 2-4 mecze, 5+ meczow
@@ -211,7 +209,6 @@ function MatchRow({ match, onSaved }) {
                 <span className="kick">🕑 {t.pl}{t.nextDay ? ` (${t.nextDay})` : ""}</span>
                 <span className="dot">·</span>
                 <span className="grp">Grupa {match.groupName}</span>
-                <span className="et">{t.et} ET</span>
                 {hasActual && (
                     <React.Fragment>
                         <span className="dot">·</span>
@@ -610,7 +607,6 @@ function KnockoutMatchRow({ match, onSaved }) {
                 <span className="kick">🕑 {t.pl}</span>
                 <span className="dot">·</span>
                 <span className="grp">Faza pucharowa</span>
-                <span className="et">{t.et} ET</span>
                 {hasActual && (
                     <React.Fragment>
                         <span className="dot">·</span>

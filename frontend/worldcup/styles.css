@@ -1147,7 +1147,7 @@ header.app-header .tagline {
     background: rgba(var(--accent-rgb), 0.08);
 }
 
-/* Linia meta nad meczem: godzina + grupa + ET */
+/* Linia meta nad meczem: godzina + grupa */
 .match-group {
     grid-column: 1 / -1;
     display: flex;
@@ -1178,13 +1178,6 @@ header.app-header .tagline {
     text-transform: uppercase;
     letter-spacing: 1.2px;
     font-size: 11px;
-}
-
-.match-group .et {
-    color: var(--muted);
-    font-weight: 500;
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
 }
 
 .match-group .actual-result {
@@ -1483,10 +1476,6 @@ header.app-header .tagline {
         font-size: 18px;
     }
 
-    .match-group .et {
-        display: none;
-    }
-
     .leaderboard-table th,
     .leaderboard-table td {
         padding: 11px 14px;
@@ -1526,6 +1515,7 @@ header.app-header .tagline {
 .admin-panel input[type="text"],
 .admin-panel input[type="number"],
 .admin-panel input[type="datetime-local"],
+.admin-panel input[type="date"],
 .admin-panel input:not([type]),
 .admin-panel select {
     height: 38px;
@@ -1646,6 +1636,13 @@ header.app-header .tagline {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.admin-date-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
 }
 
 .admin-empty {
