@@ -630,9 +630,10 @@ header.app-header .tagline {
     justify-content: center;
     margin: 6px auto 8px;
     padding: 5px;
-    background: var(--panel);
+    background: var(--panel-solid);
     border: 1px solid var(--border);
     border-radius: 999px;
+    pointer-events: auto;
     backdrop-filter: blur(8px);
 }
 
@@ -643,9 +644,7 @@ header.app-header .tagline {
     z-index: 50;
     padding: 4px 0 1px;
     margin-bottom: 14px;
-    background: rgba(10, 10, 11, 0.82);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    pointer-events: none;
 }
 
 .tab-bar .chip {
