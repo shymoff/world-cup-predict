@@ -1,4 +1,4 @@
-const { useState, useEffect, useMemo } = React;
+const { useState, useEffect, useMemo, useRef } = React;
 
 const API = "/api";
 
@@ -269,7 +269,7 @@ function MatchRow({ match, onSaved }) {
 function DayCard({ date, matches, onSaved }) {
     const { weekday, label } = formatDate(date);
     return (
-        <div className="day-card">
+        <div className="day-card" id={"day-" + date}>
             <h2>
                 <span className="weekday">{weekday}</span>
                 <span className="day-label">{label}</span>
@@ -808,6 +808,28 @@ function App({ user, onLogout }) {
         return [...map.entries()]; // [ [date, [matches]], ... ]
     }, [filtered]);
 
+    // Dzien "na teraz": pierwszy, w ktorym jest mecz jeszcze trwajacy lub przed nami
+    // (mecz liczymy jako trwajacy ok. 3 h od startu); gdy wszystkie sie odbyly - ostatni dzien.
+    const currentDate = (() => {
+        const now = Date.now();
+        const upcoming = byDate.find(([, ms]) =>
+            ms.some((m) => new Date(m.kickoffUtc).getTime() + 3 * 3600 * 1000 > now));
+        return upcoming ? upcoming[0] : (byDate.length ? byDate[byDate.length - 1][0] : null);
+    })();
+
+    function scrollToCurrent(smooth) {
+        const el = currentDate && document.getElementById("day-" + currentDate);
+        if (el) el.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+    }
+
+    // Przy pierwszym wejsciu na zakladke "Mecze" przewin do dzisiejszego/najblizszego dnia
+    const didInitialScroll = useRef(false);
+    useEffect(() => {
+        if (loading || tab !== "matches" || didInitialScroll.current || !currentDate) return;
+        didInitialScroll.current = true;
+        scrollToCurrent(false);
+    }, [loading, tab, currentDate]);
+
     const playedCount = matches.filter((m) => m.played).length;
     const playedPct = matches.length ? Math.round((playedCount / matches.length) * 100) : 0;
 
@@ -883,6 +905,7 @@ function App({ user, onLogout }) {
                                         className={"chip" + (groupFilter === g ? " active" : "")}
                                         onClick={() => setGroupFilter(g)}>{g}</button>
                             ))}
+                            <button className="chip wide chip-today" onClick={() => scrollToCurrent(true)}>📅 Dzisiaj</button>
                         </div>
 
                         {byDate.map(([date, dayMatches]) => (

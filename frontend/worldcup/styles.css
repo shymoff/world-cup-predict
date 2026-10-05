@@ -1073,6 +1073,7 @@ header.app-header .tagline {
 /* ---------- Karta jednego dnia ---------- */
 
 .day-card {
+    scroll-margin-top: 12px;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: var(--radius);
