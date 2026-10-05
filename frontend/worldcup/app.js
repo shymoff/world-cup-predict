@@ -709,6 +709,13 @@ function KnockoutStage({ matches, onSaved }) {
         return map;
     }, [matches]);
 
+    // Tylko rundy, ktore maja juz mecze - znane w ustalonej kolejnosci, nieznane na koncu
+    const rounds = useMemo(() => {
+        const known = RUNDY_PUCHAROWE.filter((r) => byRound.has(r));
+        const other = [...byRound.keys()].filter((r) => !RUNDY_PUCHAROWE.includes(r));
+        return [...known, ...other];
+    }, [byRound]);
+
     return (
         <div className="knockout">
             <ChampionPicker />
@@ -721,21 +728,18 @@ function KnockoutStage({ matches, onSaved }) {
                     <li><strong>1 pkt</strong> — niedokładny remis i zły typ drużyny awansującej</li>
                 </ul>
             </div>
-            {RUNDY_PUCHAROWE.map((runda) => {
-                const list = byRound.get(runda) || [];
-                return (
+            {rounds.length === 0 ? (
+                <div className="knockout-section"><p className="knockout-placeholder">Mecze fazy pucharowej nie zostały jeszcze dodane. Pojawią się tutaj po zakończeniu fazy grupowej.</p></div>
+            ) : (
+                rounds.map((runda) => (
                     <div className="knockout-section" key={runda}>
                         <h2>{runda}</h2>
-                        {list.length === 0 ? (
-                            <p className="knockout-placeholder">Mecze zostaną uzupełnione po zakończeniu fazy grupowej.</p>
-                        ) : (
-                            list.map((m) => (
-                                <KnockoutMatchRow key={m.id} match={m} onSaved={onSaved} />
-                            ))
-                        )}
+                        {byRound.get(runda).map((m) => (
+                            <KnockoutMatchRow key={m.id} match={m} onSaved={onSaved} />
+                        ))}
                     </div>
-                );
-            })}
+                ))
+            )}
         </div>
     );
 }
